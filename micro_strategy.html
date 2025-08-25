@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quantum Yield Microstructure Alpha Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- ===== Base Styles ===== -->
+  <style>
+    :root{
+      --bg:#0f172a; --card:#0b1220; --text:#e5e7eb; --muted:#94a3b8; --accent:#3b82f6;
+      --green:#10b981; --red:#ef4444; --gray:#9ca3af; --blue:#3b82f6; --yellow:#f59e0b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#0b1220);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu}
+    .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
+    .row{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .grid{display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+    .col-5{grid-column:span 5}
+    .col-7{grid-column:span 7}
+    .col-6{grid-column:span 6}
+    .col-12{grid-column:span 12}
+    @media (max-width:900px){.col-5,.col-6,.col-7{grid-column:span 12}}
+
+    .card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px}
+    .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(59,130,246,.15);color:#bfdbfe;border:1px solid rgba(59,130,246,.35);font-weight:600}
+
+    .seg{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,0.12);border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.04)}
+    .seg button, .seg{background:transparent;color:var(--text);border:0;padding:8px 12px;cursor:pointer}
+    .seg button.active{background:var(--accent);color:#fff}
+
+    .legend{display:flex;gap:8px;flex-wrap:wrap}
+    .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#e5e7eb;font-size:12px}
+
+    .checkbox-group{display:flex;flex-wrap:wrap;gap:8px}
+    .checkbox-group-item{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:6px 10px;border-radius:8px;cursor:pointer}
+    .checkbox-group-item.selected{background:#3b82f6;color:#fff;border-color:#3b82f6}
+
+    table{width:100%;border-collapse:separate;border-spacing:0 6px}
+    th,td{padding:8px 10px;text-align:left}
+    th{color:#cbd5e1;font-weight:600}
+    tr{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+    tr td:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px}
+    tr td:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px}
+
+    /* ===== QY white header (namespaced) ===== */
+    .qy-header{
+      position:sticky; top:0; left:0; width:100%;
+      z-index:9999;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 20px;
+      background:#ffffff !important;
+      color:#111827 !important;
+      border-bottom:1px solid #d1d5db;
+    }
+    .qy-header__logo img{height:64px; display:block; border-radius:0} /* square, larger */
+    .qy-header__title{
+      position:absolute; left:50%; transform:translateX(-50%);
+      margin:0; font-weight:800; line-height:1.1;
+      color:#111827;
+      font-size:34px;
+      letter-spacing:0.2px;
+    }
+    @media (max-width:900px){ .qy-header__title{ font-size:22px } }
+
+    .qy-header__nav{ position:relative; display:flex; align-items:center }
+    .qy-header__btn{
+      background:transparent; border:none; cursor:pointer; padding:10px; border-radius:10px;
+    }
+    .qy-header__btn:hover{ background:#f3f4f6 }
+    .qy-header__btn svg{ width:38px; height:38px; stroke:#111827 } /* slightly bigger icon */
+
+    .qy-menu{
+      position:absolute; right:0; top:62px; width:220px;
+      background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+      box-shadow:0 8px 24px rgba(0,0,0,.15); padding:6px; z-index:10000;
+    }
+    .qy-menu__item{
+      display:block; padding:10px 14px; border-radius:8px;
+      color:#111827; text-decoration:none; font-size:15px; font-weight:500;
+    }
+    .qy-menu__item:hover{ background:#f3f4f6 }
+    .qy-hidden{ display:none!important }
+
+    /* Borders for forecast controls */
+    .forecast-box {
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 8px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* Borders for PRE/POST chart cards */
+    .chart-box {
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* Left schema panel layout */
+    .schema-panel {
+      display: flex;
+      flex-direction: column;
+      /* adjust height to taste */
+      max-height: 520px;
+      min-height: 420px;
+    }
+
+    /* Category pills line: never grows vertically too much */
+    .schema-panel .cats {
+      flex: 0 0 auto;
+      margin: 8px 0 12px 0;
+      overflow-x: auto;           /* allow horizontal scroll if many categories */
+      padding-bottom: 4px;
+    }
+
+    /* Scrollable fields area (prevents downward expansion) */
+    .schema-panel .fields-scroll {
+      flex: 1 1 auto;             /* fill remaining height */
+      min-height: 200px;
+      max-height: 100%;
+      overflow: auto;             /* vertical scroll for many fields */
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      padding: 10px;
+    }
+
+    /* Field chips layout inside the scroll area */
+    .schema-panel .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* Optional: keep the “Fields — …” header sticky inside the scroll box */
+    .fields-scroll .sticky-head {
+      position: sticky;
+      top: -10px;                 /* compensate for padding */
+      background: inherit;
+      padding-bottom: 8px;
+      margin: -10px -10px 10px -10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      z-index: 1;
+    }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- ===== Header ===== -->
+  <header class="qy-header">
+    <a href="https://quantumyield.ai" target="_blank" class="qy-header__logo" aria-label="Quantum Yield">
+      <img src="QY_logo_web.jpg" alt="Quantum Yield Logo">
+    </a>
+    <h1 class="qy-header__title">Quantum Yield Microstructure Alpha Portal</h1>
+    <nav class="qy-header__nav">
+      <button id="qyBtn" class="qy-header__btn" aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+      <div id="qyMenu" class="qy-menu qy-hidden" role="menu">
+        <a href="HFT_quantum_yield.html" class="qy-menu__item" data-qy>Home</a>
+        <a href="micro_strategy.html" class="qy-menu__item" data-qy>Dashboard</a>
+      </div>
+    </nav>
+  </header>
+
+  <div class="wrap">
+    <!-- ===== Live Data: schema-driven snapshot ===== -->
+    <div class="card col-12">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+        <h2 style="margin:0">Live Data</h2>
+        <span id="modeBadge" class="badge">Depth: L1</span>
+      </div>
+
+      <!-- Depth Level selection -->
+      <div class="seg" style="margin-bottom:16px;">
+        <button id="depthL1" class="active" aria-pressed="true">L1 — Top of Book</button>
+        <button id="depthL2" aria-pressed="false">L2 — 10 Levels</button>
+      </div>
+
+      <div class="row">
+        <!-- Category + Field pickers -->
+        <div class="col-5">
+          <div class="card schema-panel" style="padding:12px;">
+            <h3 style="margin:0 0 8px;color:#cbd5e1">Schema Browser</h3>
+            <p style="color:var(--muted);margin:0 0 8px">Pick <strong>categories</strong> then choose <strong>fields</strong>. The list below scrolls instead of expanding the page.</p>
+
+            <!-- Category pills -->
+            <div id="catList" class="legend cats"></div>
+
+            <!-- Scrollable field box -->
+            <div class="fields-scroll">
+              <div class="sticky-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px;">
+                <h4 id="fieldsTitle" style="margin:0;color:#cbd5e1">Fields</h4>
+                <div>
+                  <button id="btnSelectAll" class="seg"><span style="padding:6px 10px;display:inline-block">Select All</span></button>
+                  <button id="btnClearSel" class="seg" style="margin-left:6px"><span style="padding:6px 10px;display:inline-block">Clear</span></button>
+                </div>
+              </div>
+              <div id="fieldBox" class="checkbox-group"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live snapshot table -->
+        <div class="col-7">
+          <div class="card" style="padding:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <h3 style="margin:0;color:#cbd5e1">Live Feature Snapshot</h3>
+              <div id="activeTags" class="legend"></div>
+            </div>
+            <table>
+              <thead><tr id="snapHeader"></tr></thead>
+              <tbody id="snapBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Forecast Controls: timestep + horizon ===== -->
+    <div class='card col-12' style='margin-top:16px;'>
+      <h2>Forecast Settings</h2>
+      <div class='row'>
+        <div class='col-6'>
+          <h3>Timestep</h3>
+          <div class='forecast-box'>
+            <div class='checkbox-group' id='tsBox'></div>
+          </div>
+        </div>
+        <div class='col-6'>
+          <h3>Forecast Horizon</h3>
+          <div class='forecast-box'>
+            <div class='checkbox-group' id='hzBox'></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Forecast Analysis: PRE & POST ===== -->
+    <div class="card col-12 analysis" style="margin-top:16px;">
+      <h2>Forecast Analysis</h2>
+      <p style="color:var(--muted);margin-top:-4px">PRE = T−window; POST = T+window. Left Y-axis: <strong>ticks</strong> (−50…+50). Right Y-axis: <strong>classification</strong> (Down / Current / Up).</p>
+      <div class="grid">
+        <div class="col-6">
+          <div class="chart-box">
+            <h3>PRE</h3>
+            <canvas id="chartPre" width="520" height="280"></canvas>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="chart-box">
+            <h3>POST</h3>
+            <canvas id="chartPost" width="520" height="280"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== App Script ===== -->
+  <script>
+    /* ---------- Header dropdown (single, robust) ---------- */
+    (function(){
+      const btn=document.getElementById('qyBtn'), menu=document.getElementById('qyMenu');
+      if(!btn||!menu) return;
+      menu.classList.add('qy-hidden'); btn.setAttribute('aria-expanded','false');
+      let t0=0, now=()=>performance.now();
+      const open=()=>{menu.classList.remove('qy-hidden');btn.setAttribute('aria-expanded','true');t0=now();};
+      const close=()=>{menu.classList.add('qy-hidden');btn.setAttribute('aria-expanded','false');};
+      const stop=e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation();};
+      btn.addEventListener('pointerdown',stop,true);
+      btn.addEventListener('click',(e)=>{stop(e);menu.classList.contains('qy-hidden')?open():close();},true);
+      menu.addEventListener('pointerdown',stop,true);
+      document.addEventListener('pointerdown',(e)=>{if(now()-t0<160) return; if(!menu.contains(e.target)&&!btn.contains(e.target)) close();},true);
+      document.addEventListener('keydown',(e)=>{if(e.key==='Escape') close();},true);
+      menu.querySelectorAll('a[data-qy]').forEach(a=>a.addEventListener('click',(e)=>{stop(e);close();setTimeout(()=>location.href=a.href,10);},true));
+    })();
+
+    /* ---------- Depth-aware Schema ---------- */
+    // TODO: Replace arrays with exact lists from your Excel when ready.
+    const SCHEMA = {
+      L1: {
+        cats: {
+          "Event Metadata": ["ts_event","release_ts_et","release_ts_utc","window_type","window_start_utc","window_end_utc","symbol"],
+          "Top-of-Book (L1)": ["rtype","action","side","price","size","spread"],
+          "Derived Book Features": ["mid","depth_bid","depth_ask","obi","microprice","d_best_bid_px","d_best_ask_px","d_best_bid_sz","d_best_ask_sz"],
+          "Volatility & Returns": ["rv_5s","rv_30s"],
+          "Trades (1s aggregates)": ["trades_per_sec","volume_1s","vwap_1s","ofi_1s"],
+          "Macro Fields": ["macro_month","nfp","nfp_rev","unemp","unemp_rev","nfp_forecast","unemp_forecast","nfp_surprise_abs","nfp_surprise_rel","unemp_surprise_abs","unemp_surprise_rel"]
+        }
+      },
+      L2: {
+        cats: {
+          "Event Metadata": ["ts_event","release_ts_et","release_ts_utc","window_type","window_start_utc","window_end_utc","symbol"],
+          "Order Book Levels (L2)": ["bid_px_00..09","ask_px_00..09","bid_sz_00..09","ask_sz_00..09"],
+          "Depth Aggregates": ["depth_bid","depth_ask","top3_depth_bid","top3_depth_ask","imbalance_by_bands"],
+          "Derived Book Features": ["mid","spread","obi","microprice","d_best_bid_px","d_best_ask_px","d_best_bid_sz","d_best_ask_sz"],
+          "Volatility & Returns": ["rv_5s","rv_30s"],
+          "Trades (1s aggregates)": ["trades_per_sec","volume_1s","vwap_1s","ofi_1s"],
+          "Macro Fields": ["macro_month","nfp","nfp_rev","unemp","unemp_rev","nfp_forecast","unemp_forecast","nfp_surprise_abs","nfp_surprise_rel","unemp_surprise_abs","unemp_surprise_rel"]
+        }
+      }
+    };
+
+    const els = {
+      depthL1: document.getElementById('depthL1'),
+      depthL2: document.getElementById('depthL2'),
+      modeBadge: document.getElementById('modeBadge'),
+      catList: document.getElementById('catList'),
+      fieldBox: document.getElementById('fieldBox'),
+      fieldsTitle: document.getElementById('fieldsTitle'),
+      btnSelectAll: document.getElementById('btnSelectAll'),
+      btnClearSel: document.getElementById('btnClearSel'),
+      activeTags: document.getElementById('activeTags'),
+      snapHeader: document.getElementById('snapHeader'),
+      snapBody: document.getElementById('snapBody'),
+      chartPre: document.getElementById('chartPre'),
+      chartPost: document.getElementById('chartPost'),
+      tsBox: document.getElementById('tsBox'),
+      hzBox: document.getElementById('hzBox'),
+    };
+
+    const tsPalette = { '1ms':'#38bdf8','5ms':'#60a5fa','10ms':'#22d3ee','20ms':'#22c55e','50ms':'#84cc16','100ms':'#f59e0b','1s':'#a78bfa' };
+    const state = {
+      depth: 'L1',
+      activeCat: null,
+      selected: new Set(),        // "Category|Field"
+      timesteps: new Set(['20ms','100ms']),
+      horizons:  new Set(['200ms','1s','5s'])
+    };
+
+    function keyOf(cat, field){ return `${cat}|${field}`; }
+
+    function renderCategories(){
+      const cats = Object.keys(SCHEMA[state.depth].cats);
+      els.catList.innerHTML = '';
+      cats.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'seg';
+        btn.style.padding = '6px 10px';
+        btn.textContent = `${cat} (${SCHEMA[state.depth].cats[cat].length})`;
+        if (state.activeCat === null) state.activeCat = cat;
+        if (state.activeCat === cat) btn.classList.add('active');
+        btn.onclick = () => { state.activeCat = cat; renderCategories(); renderFields(); };
+        els.catList.appendChild(btn);
+      });
+      els.fieldsTitle.textContent = `Fields — ${state.activeCat || ''}`;
+    }
+
+    function renderFields(){
+      const fields = SCHEMA[state.depth].cats[state.activeCat] || [];
+      els.fieldBox.innerHTML = '';
+      fields.forEach(f => {
+        const label = document.createElement('label');
+        label.className = 'checkbox-group-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.value = keyOf(state.activeCat, f);
+        cb.checked = state.selected.has(cb.value);
+        if (cb.checked) label.classList.add('selected');
+        cb.onchange = () => {
+          if (cb.checked) state.selected.add(cb.value); else state.selected.delete(cb.value);
+          label.classList.toggle('selected', cb.checked);
+          renderActiveTags(); buildSnapshot();
+        };
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' ' + f));
+        els.fieldBox.appendChild(label);
+      });
+    }
+
+    function renderActiveTags(){
+      els.activeTags.innerHTML = '';
+      Array.from(state.selected).forEach(k => {
+        const [cat, field] = k.split('|');
+        const t = document.createElement('span');
+        t.className = 'tag';
+        t.textContent = `${cat}: ${field}`;
+        els.activeTags.appendChild(t);
+      });
+    }
+
+    els.btnSelectAll.onclick = () => {
+      (SCHEMA[state.depth].cats[state.activeCat] || [])
+        .forEach(f => state.selected.add(keyOf(state.activeCat, f)));
+      renderFields(); renderActiveTags(); buildSnapshot();
+    };
+    els.btnClearSel.onclick = () => {
+      (SCHEMA[state.depth].cats[state.activeCat] || [])
+        .forEach(f => state.selected.delete(keyOf(state.activeCat, f)));
+      renderFields(); renderActiveTags(); buildSnapshot();
+    };
+
+    function mockValue(header){
+        if (/mid|price|vwap/i.test(header)) return (100 + Math.random()*0.5).toFixed(3);
+        if (/spread/i.test(header)) return (Math.random()*2).toFixed(3);
+        if (/depth|size|volume/i.test(header)) return Math.floor(Math.random()*1500);
+        if (/rv_|volatility|return/i.test(header)) return (Math.random()*0.5).toFixed(4);
+        if (/obi|microprice/i.test(header)) return (Math.random()*2-1).toFixed(4);
+        if (/nfp$/i.test(header)) return (Math.floor(Math.random()*700) - 100); // −100 to 600 (thousands)
+        if (/nfp_rev/i.test(header)) return (Math.floor(Math.random()*201) - 100); // −100 to 100
+        if (/unemp$/i.test(header)) return (Math.random()*6+3).toFixed(1); // 3%–9%
+        if (/unemp_rev/i.test(header)) return (Math.random()*0.5-0.25).toFixed(1); // ±0.25
+        if (/window|release|ts_event/i.test(header)) return new Date(Date.now()).toISOString();
+        return Math.random().toString(36).substring(2,7);
+      }
+
+    function buildSnapshot(){
+      const cols = ['Time', ...Array.from(state.selected).map(k => k.split('|')[1])];
+      els.snapHeader.innerHTML = '';
+      cols.forEach(h => { const th=document.createElement('th'); th.textContent=h; els.snapHeader.appendChild(th); });
+      els.snapBody.innerHTML = '';
+      const now = Date.now();
+      for (let i=9;i>=0;i--){
+        const tr=document.createElement('tr');
+        const vals=[new Date(now - i*500).toISOString(), ...cols.slice(1).map(mockValue)];
+        vals.forEach(v => { const td=document.createElement('td'); td.textContent=v; tr.appendChild(td); });
+        els.snapBody.appendChild(tr);
+      }
+    }
+
+    /* ---------- Timestep + Horizon selectors ---------- */
+    const TS_OPTIONS = ['1ms','5ms','10ms','20ms','50ms','100ms','1s'];
+    const HZ_OPTIONS = ['20ms','50ms','100ms','200ms','500ms','1s','5s','10s'];
+
+    function makeSelLabel(text, set){
+      const label = document.createElement('label');
+      label.className = 'checkbox-group-item';
+      const cb = document.createElement('input');
+      cb.type='checkbox'; cb.value=text; cb.style.marginRight='6px'; cb.checked=set.has(text);
+      if (cb.checked) label.classList.add('selected');
+      cb.addEventListener('change', ()=>{
+        if (cb.checked) { set.add(text); label.classList.add('selected'); }
+        else { set.delete(text); label.classList.remove('selected'); }
+        updateForecast(Array.from(state.timesteps), Array.from(state.horizons));
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(text));
+      return label;
+    }
+    function renderTsHzBoxes(){
+      tsBox.innerHTML=''; hzBox.innerHTML='';
+      TS_OPTIONS.forEach(opt => tsBox.appendChild(makeSelLabel(opt, state.timesteps)));
+      HZ_OPTIONS.forEach(opt => hzBox.appendChild(makeSelLabel(opt, state.horizons)));
+    }
+
+    /* ---------- PRE/POST mock charts ---------- */
+    function mapRegY(v,H){ const top=20,bottom=H-40; return bottom - ((v+50)/100)*(bottom-top); }
+    function mapClsY(v,H){ const top=20,bottom=H-40; return bottom - ((v+1)/2)*(bottom-top); }
+    function drawAxes(ctx,W,H){
+      ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle='rgba(255,255,255,0.15)';
+      ctx.beginPath(); ctx.moveTo(50,20); ctx.lineTo(50,H-40); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(W-30,20); ctx.lineTo(W-30,H-40); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(50,H-40); ctx.lineTo(W-30,H-40); ctx.stroke();
+      ctx.fillStyle='#e5e7eb'; ctx.font='11px sans-serif';
+      [-50,-25,0,25,50].forEach(t=>{ const y=mapRegY(t,H); ctx.beginPath(); ctx.moveTo(45,y); ctx.lineTo(50,y); ctx.stroke(); ctx.fillText(String(t),14,y+3);});
+      ctx.fillText('ticks',14,12);
+      [{v:-1,l:'Down'},{v:0,l:'Current'},{v:1,l:'Up'}].forEach(({v,l})=>{ const y=mapClsY(v,H); ctx.beginPath(); ctx.moveTo(W-30,y); ctx.lineTo(W-25,y); ctx.stroke(); ctx.fillText(l,W-110,y+3);});
+      ctx.fillText('classification',W-130,12);
+    }
+    function genSignals(post){
+      const regStd = post?25:8; const clsStd = post?0.9:0.4;
+      const reg=()=>Math.max(-50,Math.min(50,Math.round(regStd*(Math.random()*2-1))));
+      const cls=()=>{const r=(Math.random()*2-1)*clsStd; return r>0.33?1:r<-0.33?-1:0};
+      return {reg,cls};
+    }
+    function drawChart(canvas, post, timesteps, horizons){
+      const ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+      drawAxes(ctx,W,H);
+      const sig=genSignals(post);
+      const hzArr=[...horizons]; const tsArr=[...timesteps];
+      const groupW=Math.max(80,(W-120)/hzArr.length); const barW=12;
+      hzArr.forEach((hz,gi)=>{
+        const gx=60+gi*groupW; ctx.fillStyle='#e5e7eb'; ctx.font='12px sans-serif'; ctx.fillText(hz,gx+groupW/3,H-22);
+        tsArr.forEach((ts,ti)=>{
+          const r=sig.reg(); const c=sig.cls();
+          const rc=tsPalette[ts] || '#f59e0b';
+          const cc=c===1?'#10b981':(c===-1?'#ef4444':'#9ca3af');
+          const xR=gx+ti*40; const y0=mapRegY(0,H); const yR=mapRegY(r,H);
+          ctx.fillStyle=rc; ctx.fillRect(xR,Math.min(y0,yR),barW,Math.abs(yR-y0));
+          const xC=xR+barW+4; const yC0=mapClsY(0,H); const yC=mapClsY(c,H);
+          ctx.strokeStyle=cc; ctx.lineWidth=2; ctx.strokeRect(xC,Math.min(yC0,yC),barW,Math.abs(yC-yC0));
+        });
+      });
+    }
+    function updateForecast(ts, hz){
+      drawChart(chartPre,false, ts, hz);
+      drawChart(chartPost,true,  ts, hz);
+    }
+
+    /* ---------- Wiring ---------- */
+    function updateAll(){
+      renderCategories(); renderFields(); renderActiveTags(); buildSnapshot();
+      renderTsHzBoxes();
+      updateForecast(Array.from(state.timesteps), Array.from(state.horizons));
+    }
+    depthL1.addEventListener('click',()=>{
+      depthL1.classList.add('active'); depthL2.classList.remove('active');
+      state.depth='L1'; state.activeCat=null; state.selected.clear();
+      modeBadge.textContent='Depth: L1'; updateAll();
+    });
+    depthL2.addEventListener('click',()=>{
+      depthL2.classList.add('active'); depthL1.classList.remove('active');
+      state.depth='L2'; state.activeCat=null; state.selected.clear();
+      modeBadge.textContent='Depth: L2'; updateAll();
+    });
+
+    // Init + periodic snapshot refresh
+    updateAll();
+    setInterval(buildSnapshot, 1000);
+  </script>
+</body>
+</html>
+
+
+
+
+
+
