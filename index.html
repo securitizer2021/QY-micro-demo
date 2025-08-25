@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quantum Yield Microstructure</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    #neuralCanvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0f172a;
+    }
+    section {
+      padding: 80px 20px;
+    }
+    .glass {
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+    }
+  </style>
+  
+  <!-- Cloudflare Web Analytics -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a0626fdb5f174814b045ec34f2b1fd3b"}'>
+  </script>
+  <!-- End Cloudflare Web Analytics -->
+</head>
+
+<body class="text-gray-100">
+  <header class="bg-white text-black p-4 border-b border-gray-300 flex justify-between items-center relative">
+        <a href="https://quantumyield.ai" target="_blank">
+            <img src="QY_logo_web.jpg" alt="Quantum Yield Logo">
+        </a>
+        <h1 class="text-4xl font-bold absolute left-1/2 transform -translate-x-1/2">Quantum Yield Microstructure Alpha Portal</h1>
+        <nav>
+          <div class="relative inline-block text-left">
+            <!-- Menu Button -->
+            <button id="menu-button" aria-expanded="false" aria-haspopup="true" class="focus:outline-none">
+              <!-- Icon-Only Menu Button -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="dropdownMenu" class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white text-gray-900 ring-1 ring-black ring-opacity-5 z-50">
+              <div class="py-1" role="none">
+                <a href="/" class="block px-4 py-2 text-sm hover:bg-gray-100">Home</a>
+                <a href="micro_strategy.html"
+                   onclick="window.location.href='micro_strategy.html'; return false;"
+                   class="block px-4 py-2 text-sm hover:bg-gray-100">Dashboard</a>
+              </div>
+            </div>
+          </div>
+        </nav>
+  </header>
+
+<!-- HERO SECTION -->
+<section id="hero" class="relative bg-indigo-900 overflow-hidden">
+  <canvas id="neuralCanvas"></canvas>
+  <div class="relative z-10 text-center py-32">
+    <h1 class="text-4xl font-extrabold text-white">A Deep Dive into Data, Models, and Market Microstructure Intelligence</h1>
+    <p class="mt-4 text-lg text-gray-200">Real-time LOB dynamics, predictive modeling, and execution edge — all in one portal</p>
+    <a href="#dataset" class="mt-6 inline-block bg-white text-blue-600 px-6 py-3 rounded-lg shadow hover:bg-blue-100 transition">Explore Data</a>
+  </div>
+</section>
+
+<!-- DATASET OVERVIEW -->
+<section id="dataset" class="bg-gray-800 text-center">
+  <h2 class="text-3xl font-bold mb-4">Data Overview</h2>
+  <p class="max-w-3xl mx-auto text-gray-300">
+    Each trading day includes millions of tick-level records from CME Treasury futures LOB - limit order books e.g., 2Y, 5Y, 10Y, 30Y, capturing the market’s microstructure at millisecond granularity across both top-of-book and deeper liquidity levels. 
+  </p>
+  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+    To mitigate overfitting and reduce noise, the data is downsampled—preserving key dynamics while filtering out excess volatility. A representative subset is then sampled to balance model fidelity with computational efficiency, producing a high-quality dataset optimized for training short-term market behavior.
+  </p>
+</section>
+
+<!-- FEATURE SUMMARY -->
+<section id="features" class="bg-gray-900 text-center">
+  <h2 class="text-3xl font-bold mb-4">Feature Summary</h2>
+  <p class="text-gray-300 max-w-3xl mx-auto">
+    We leverage a curated blend of raw and engineered features derived from high-frequency Treasury futures data. These features capture the real-time behavior of the limit order book (LOB), including price levels, liquidity depth, and trade flow signals. Additional derived metrics—such as microprice, order imbalance, and realized volatility—enhance the signal quality and reflect nuanced market dynamics.
+  </p>
+  <p class="text-gray-300 max-w-3xl mx-auto mt-4">
+    To streamline modeling and reduce overfitting risk, we apply dimensionality reduction techniques (e.g., PCA), transforming the full feature space into a compact set of informative components. This process ensures robust, efficient learning while preserving key aspects of market microstructure.
+  </p>
+</section>
+
+<!-- MODEL OVERVIEW -->
+<section id="model" class="bg-gray-800 text-center py-16">
+  <h2 class="text-3xl font-bold mb-4">Model Training Overview</h2>
+  <p class="max-w-3xl mx-auto text-gray-300">
+    Our forecasting engine leverages a deep LSTM architecture with dropout regularization, trained on high-frequency market data. It supports <strong>classification</strong> to detect directional movement (up, flat, down) using configurable price thresholds, and <strong>regression</strong> to predict mid-price deltas in basis points.
+  </p>
+  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+    Temporal sequences span hundreds of market events to capture evolving order flow and liquidity dynamics. Prediction horizons are optimized to forecast meaningful moves ahead of market response. Training labels and signal sensitivity are aligned with strategy-specific goals—such as reactions to macro events, filtered time windows, or trading session regimes.
+  </p>
+  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+    This <strong>Strategy-Aligned Customization</strong> ensures the model tailors its lookback windows, forecast horizons, and thresholds to match the decision cadence and risk appetite of specific trading styles.
+  </p>
+  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+    Hyperparameters—including network size, memory depth, dropout, and learning rate—are tuned using Bayesian optimization for optimal performance under noisy real-world conditions.
+  </p>
+</section>
+
+<!-- WORKFLOW -->
+<section id="results" class="bg-gray-900 text-center py-10">
+  <h2 class="text-3xl font-bold mb-4 text-white">HFT Trading Workflow</h2>
+  <p class="max-w-3xl mx-auto text-gray-300 mb-6">
+    The chart below illustrates how our real-time and offline components interact to generate fast, informed trading signals based on macroeconomic events and high-frequency market data.
+  </p>
+  <img src="HFT_flowchart.png" alt="HFT Trading Workflow Diagram" class="mx-auto max-w-full h-auto rounded shadow-lg">
+</section>
+
+<!-- CONTACT US FOR EVALUATION -->
+<section id="model" class="bg-gray-800 text-center py-16">
+  <h2 class="text-3xl font-bold mb-4">Contact Us for Evaluation & Results</h2>
+  <p class="max-w-2xl mx-auto text-gray-300 mb-6">
+    Interested in deeper performance metrics and microstructure analytics?<br/>
+    You can:
+  </p>
+  <p class="max-w-2xl mx-auto text-gray-300">
+    • Email us at <a href="mailto:info@quantumyield.ai" class="text-blue-400 underline">info@quantumyield.ai</a><br/>
+    • Or book a meeting directly via <a href="https://calendly.com/jason-huang-quantumyield/30min" target="_blank" class="text-blue-400 underline">Calendly</a>
+  </p>
+</section>
+
+<!-- FOOTER -->
+<footer class="bg-gray-950 text-gray-500 text-sm text-center py-6">
+  &copy; 2025 Quantum Yield. All rights reserved.
+</footer>
+
+<!-- NEURAL ANIMATION JS -->
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const canvas = document.getElementById("neuralCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.radius = Math.random() * 2 + 1;
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        this.speedY = (Math.random() - 0.5) * 0.5;
+        this.alpha = Math.random() * 0.5 + 0.3;
+      }
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (
+          this.x < 0 ||
+          this.x > canvas.width ||
+          this.y < 0 ||
+          this.y > canvas.height
+        ) {
+          this.reset();
+        }
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 255, 255, ${this.alpha})`;
+        ctx.shadowColor = "#00faff";
+        ctx.shadowBlur = 5;
+        ctx.fill();
+      }
+    }
+
+    const particles = Array.from({ length: 60 }, () => new Particle());
+
+    function drawLines() {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = "rgba(0,255,255,0.1)";
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawLines();
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  });
+</script>
+<script>
+    const menuButton = document.getElementById('menu-button');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+
+    menuButton.addEventListener('click', function () {
+      dropdownMenu.classList.toggle('hidden');
+    });
+
+    window.addEventListener('click', function (e) {
+      if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+        dropdownMenu.classList.add('hidden');
+      }
+    });
+</script>
+</body>
+</html>
