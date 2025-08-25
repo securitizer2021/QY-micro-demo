@@ -327,6 +327,21 @@
       hzBox: document.getElementById('hzBox'),
     };
 
+    // --- Macro cache: fixed demo values (constant until next "month")
+    const MACRO_CONST = {
+      macro_month: "2025-08-01",
+      nfp: 180000,               // in thousands, demo between 50k–350k
+      nfp_rev: 0,                // can keep neutral for demo
+      unemp: 4.2,
+      unemp_rev: 0,
+      nfp_forecast: 120000,
+      unemp_forecast: 4.3,
+      nfp_surprise_abs: 50000,
+      nfp_surprise_rel: 50000,
+      unemp_surprise_abs: 0.1,
+      unemp_surprise_rel: 0.1
+    };
+
     const tsPalette = { '1ms':'#38bdf8','5ms':'#60a5fa','10ms':'#22d3ee','20ms':'#22c55e','50ms':'#84cc16','100ms':'#f59e0b','1s':'#a78bfa' };
     const state = {
       depth: 'L1',
@@ -398,6 +413,19 @@
     };
 
     function mockValue(header){
+        // Macro fields: constant (monthly)
+        if (/^macro_month$/i.test(header)) return MACRO_CONST.macro_month;
+        if (/^nfp$/i.test(header)) return MACRO_CONST.nfp;
+        if (/^nfp_rev$/i.test(header)) return MACRO_CONST.nfp_rev;
+        if (/^unemp$/i.test(header)) return MACRO_CONST.unemp;
+        if (/^unemp_rev$/i.test(header)) return MACRO_CONST.unemp_rev;
+        if (/^nfp_forecast$/i.test(header)) return MACRO_CONST.nfp_forecast;
+        if (/^unemp_forecast$/i.test(header)) return MACRO_CONST.unemp_forecast;
+        if (/^nfp_surprise_abs$/i.test(header)) return MACRO_CONST.nfp_surprise_abs;
+        if (/^nfp_surprise_rel$/i.test(header)) return MACRO_CONST.nfp_surprise_rel;
+        if (/^unemp_surprise_abs$/i.test(header)) return MACRO_CONST.unemp_surprise_abs;
+        if (/^unemp_surprise_rel$/i.test(header)) return MACRO_CONST.unemp_surprise_rel;
+
         if (/mid|price|vwap/i.test(header)) return (100 + Math.random()*0.5).toFixed(3);
         if (/spread/i.test(header)) return (Math.random()*2).toFixed(3);
         if (/depth|size|volume/i.test(header)) return Math.floor(Math.random()*1500);
@@ -518,6 +546,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
