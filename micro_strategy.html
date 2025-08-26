@@ -81,7 +81,14 @@
     }
     .qy-menu__item:hover{ background:#f3f4f6 }
     .qy-hidden{ display:none!important }
-
+    .qy-header__title {
+      font-size: 2.25rem;   /* same as Tailwind text-4xl */
+      line-height: 2.5rem;  /* text-4xl default line-height */
+      font-weight: 700;     /* font-bold */
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
     /* Borders for forecast controls */
     .forecast-box {
       border: 1px solid rgba(255,255,255,0.2);
