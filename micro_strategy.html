@@ -4,30 +4,68 @@
   <meta charset="UTF-8" />
   <title>Quantum Yield Microstructure Alpha Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- ===== Base Styles ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
       --bg:#0f172a; --card:#0b1220; --text:#e5e7eb; --muted:#94a3b8; --accent:#3b82f6;
       --green:#10b981; --red:#ef4444; --gray:#9ca3af; --blue:#3b82f6; --yellow:#f59e0b;
+      --white:#ffffff; --ink:#111827;
     }
     *{box-sizing:border-box}
     body{margin:0;background:linear-gradient(180deg,var(--bg),#0b1220);color:var(--text);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu}
+
+    /* ---------- White Header (sticky) ---------- */
+    .header-white{
+      position: sticky; top: 0; z-index: 1000;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:12px 20px;background:#fff;border-bottom:1px solid #d1d5db;color:var(--ink);
+    }
+    .header-white .logo img{height:46px;display:block;}
+    .header-white .qy-header__title{
+      position:absolute;left:50%;transform:translateX(-50%);
+      margin:0; font-size:2.25rem; line-height:2.5rem; font-weight:700;
+      color:var(--ink); white-space:nowrap;
+    }
+    .header-white .nav{position:relative}
+    .menu-btn{
+      background:transparent;border:none;color:var(--ink);
+      border-radius:10px;padding:8px 10px;cursor:pointer;
+      width:44px;height:44px;display:grid;place-items:center;font-size:24px;
+    }
+    .menu-btn:hover{background:#f3f4f6}
+    .dropdown{
+      position:absolute;right:0;top:48px;width:220px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      box-shadow:0 12px 28px rgba(0,0,0,.18); padding:6px; display:none;
+    }
+    .dropdown.open{display:block}
+    .dropdown a{
+      display:block;padding:10px 12px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:15px;
+    }
+    .dropdown a:hover{background:#f3f4f6}
+
+    /* ---------- Layout ---------- */
     .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
     .row{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
     .grid{display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
-    .col-5{grid-column:span 5}
-    .col-7{grid-column:span 7}
-    .col-6{grid-column:span 6}
-    .col-12{grid-column:span 12}
+    .col-5{grid-column:span 5} .col-7{grid-column:span 7} .col-6{grid-column:span 6} .col-12{grid-column:span 12}
     @media (max-width:900px){.col-5,.col-6,.col-7{grid-column:span 12}}
 
     .card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px}
-    .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(59,130,246,.15);color:#bfdbfe;border:1px solid rgba(59,130,246,.35);font-weight:600}
+    h2{font-size:16px;color:#cbd5e1;margin:0 0 10px}
+    h3{font-size:14px;color:#cbd5e1;margin:0 0 8px}
+    h4{font-size:13px;color:#cbd5e1;margin:0}
 
     .seg{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,0.12);border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.04)}
     .seg button, .seg{background:transparent;color:var(--text);border:0;padding:8px 12px;cursor:pointer}
-    .seg button.active{background:var(--accent);color:#fff}
+    .seg .active{background:var(--accent);color:#fff}
+
+    .inst-select{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:8px 0 4px}
+    .inst-select label{display:flex;flex-direction:column;gap:6px;color:#cbd5e1;font-size:12px}
+    .inst-select select{appearance:none;background:rgba(255,255,255,0.06);color:#e5e7eb;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 10px}
+    .inst-actions{display:flex;align-items:center;gap:10px}
+    .inst-preview{color:#bfdbfe;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.35);padding:6px 10px;border-radius:999px;font-weight:600}
+    .badge-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#e5e7eb;font-size:12px}
+    .badge-chip button{background:transparent;border:0;color:#94a3b8;cursor:pointer} .badge-chip button:hover{color:#e5e7eb}
 
     .legend{display:flex;gap:8px;flex-wrap:wrap}
     .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#e5e7eb;font-size:12px}
@@ -36,260 +74,140 @@
     .checkbox-group-item{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:6px 10px;border-radius:8px;cursor:pointer}
     .checkbox-group-item.selected{background:#3b82f6;color:#fff;border-color:#3b82f6}
 
-    table{width:100%;border-collapse:separate;border-spacing:0 6px}
-    th,td{padding:8px 10px;text-align:left}
+    /* Live Feature Snapshot table */
+    .table-wrap{overflow:auto;max-height:420px;-webkit-overflow-scrolling:touch;border-radius:12px}
+    .table-sticky{width:100%;border-collapse:separate;border-spacing:0 6px}
+    th,td{padding:8px 10px;text-align:left;white-space:nowrap;min-width:140px}
     th{color:#cbd5e1;font-weight:600}
     tr{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
     tr td:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px}
     tr td:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px}
-
-    /* ===== QY white header (namespaced) ===== */
-    .qy-header{
-      position:sticky; top:0; left:0; width:100%;
-      z-index:9999;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:12px 20px;
-      background:#ffffff !important;
-      color:#111827 !important;
-      border-bottom:1px solid #d1d5db;
-    }
-    .qy-header__logo img{height:64px; display:block; border-radius:0} /* square, larger */
-    .qy-header__title{
-      position:absolute; left:50%; transform:translateX(-50%);
-      margin:0; font-weight:800; line-height:1.1;
-      color:#111827;
-      font-size:34px;
-      letter-spacing:0.2px;
-    }
-    @media (max-width:900px){ .qy-header__title{ font-size:22px } }
-
-    .qy-header__nav{ position:relative; display:flex; align-items:center }
-    .qy-header__btn{
-      background:transparent; border:none; cursor:pointer; padding:10px; border-radius:10px;
-    }
-    .qy-header__btn:hover{ background:#f3f4f6 }
-    .qy-header__btn svg{ width:38px; height:38px; stroke:#111827 } /* slightly bigger icon */
-
-    .qy-menu{
-      position:absolute; right:0; top:62px; width:220px;
-      background:#fff; border:1px solid #e5e7eb; border-radius:12px;
-      box-shadow:0 8px 24px rgba(0,0,0,.15); padding:6px; z-index:10000;
-    }
-    .qy-menu__item{
-      display:block; padding:10px 14px; border-radius:8px;
-      color:#111827; text-decoration:none; font-size:15px; font-weight:500;
-    }
-    .qy-menu__item:hover{ background:#f3f4f6 }
-    .qy-hidden{ display:none!important }
-    .qy-header__title {
-      font-size: 2.25rem;   /* same as Tailwind text-4xl */
-      line-height: 2.5rem;  /* text-4xl default line-height */
-      font-weight: 700;     /* font-bold */
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-    /* Borders for forecast controls */
-    .forecast-box {
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 12px;
-      padding: 12px;
-      margin-top: 8px;
-      background: rgba(255,255,255,0.02);
+    .table-sticky thead th{position:sticky; top:0; z-index:3; background:rgba(11,18,32,0.95); backdrop-filter:blur(2px)}
+    .table-sticky th.sticky, .table-sticky td.sticky{
+      position:sticky; left:0; z-index:2; background:rgba(11,18,32,0.95);
+      width:140px; min-width:140px; max-width:140px; text-overflow:ellipsis; overflow:hidden;
     }
 
-    /* Borders for PRE/POST chart cards */
-    .chart-box {
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 12px;
-      padding: 12px;
-      background: rgba(255,255,255,0.02);
-    }
-
-    /* Left schema panel layout */
-    .schema-panel {
-      display: flex;
-      flex-direction: column;
-      /* adjust height to taste */
-      max-height: 520px;
-      min-height: 420px;
-    }
-
-    /* Category pills line: never grows vertically too much */
-    .schema-panel .cats {
-      flex: 0 0 auto;
-      margin: 8px 0 12px 0;
-      overflow-x: auto;           /* allow horizontal scroll if many categories */
-      padding-bottom: 4px;
-    }
-
-    /* Scrollable fields area (prevents downward expansion) */
-    .schema-panel .fields-scroll {
-      flex: 1 1 auto;             /* fill remaining height */
-      min-height: 200px;
-      max-height: 100%;
-      overflow: auto;             /* vertical scroll for many fields */
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 12px;
-      background: rgba(255,255,255,0.03);
-      padding: 10px;
-    }
-
-    /* Field chips layout inside the scroll area */
-    .schema-panel .checkbox-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    /* Optional: keep the “Fields — …” header sticky inside the scroll box */
-    .fields-scroll .sticky-head {
-      position: sticky;
-      top: -10px;                 /* compensate for padding */
-      background: inherit;
-      padding-bottom: 8px;
-      margin: -10px -10px 10px -10px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      z-index: 1;
-    }
-
-    .table-wrap {
-      overflow: auto;
-      max-height: 400px;           /* vertical scroll if needed */
-      -webkit-overflow-scrolling: touch;
-      border-radius: 12px;
-    }
-
-    /* Sticky header row */
-    .table-sticky thead th {
-      position: sticky;
-      top: 0;
-      z-index: 3;
-      background: rgba(11,18,32,0.95); /* match your dark bg */
-      backdrop-filter: blur(2px);
-    }
-
-    /* Sticky first column */
-    .table-sticky th.sticky,
-    .table-sticky td.sticky {
-      position: sticky;
-      left: 0;
-      z-index: 2;
-      background: rgba(11,18,32,0.95);
-    }
-
-    /* Narrow the Time column */
-    .table-sticky th.sticky,
-    .table-sticky td.sticky {
-      width: 140px;       /* adjust as needed */
-      max-width: 140px;
-      min-width: 140px;
-      white-space: nowrap; /* prevents wrapping */
-      overflow: hidden;
-      text-overflow: ellipsis; /* shows "…" if too long */
-    }
-
-    .table-wrap {
-        overflow: auto;
-        max-height: 420px;             /* vertical scroll if needed */
-        -webkit-overflow-scrolling: touch;
-        border-radius: 12px;
-      }
-
-      /* Sticky header row */
-      .table-sticky thead th {
-        position: sticky;
-        top: 0;
-        z-index: 3;
-        background: rgba(11,18,32,0.95);
-        backdrop-filter: blur(2px);
-      }
-
-      /* Sticky first column (Time) */
-      .table-sticky th.sticky,
-      .table-sticky td.sticky {
-        position: sticky;
-        left: 0;
-        z-index: 2;
-        background: rgba(11,18,32,0.95);
-        white-space: nowrap;
-        min-width: 140px; max-width: 140px; width: 140px;
-        text-overflow: ellipsis; overflow: hidden;
-      }
-
-      /* Make wide tables scroll nicely */
-      .table-sticky th, .table-sticky td {
-        white-space: nowrap;
-        min-width: 140px;
-      }
-    /* Special case: top-left cell (header + first col) */
-    .table-sticky thead th.sticky {
-      z-index: 4;
-    }
+    /* Bordered control boxes & charts */
+    .boxed{border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:12px}
+    .chart-box{border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:8px}
   </style>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
-  <!-- ===== Header ===== -->
-  <header class="qy-header">
-    <a href="https://quantumyield.ai" target="_blank" class="qy-header__logo" aria-label="Quantum Yield">
-      <img src="QY_logo_web.jpg" alt="Quantum Yield Logo">
+  <!-- Header -->
+  <header class="header-white" id="qy-header">
+    <a class="logo" href="https://quantumyield.ai" target="_blank" rel="noopener">
+      <img src="QY_logo_web.jpg" alt="Quantum Yield Logo" />
     </a>
     <h1 class="qy-header__title">Quantum Yield Microstructure Alpha Portal</h1>
-    <nav class="qy-header__nav">
-      <button id="qyBtn" class="qy-header__btn" aria-expanded="false" aria-haspopup="true" aria-label="Open menu">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-      </button>
-      <div id="qyMenu" class="qy-menu qy-hidden" role="menu">
-        <a href="HFT_quantum_yield.html" class="qy-menu__item" data-qy>Home</a>
-        <a href="micro_strategy.html" class="qy-menu__item" data-qy>Dashboard</a>
+    <nav class="nav">
+      <button id="menuBtn" class="menu-btn" aria-expanded="false" aria-haspopup="true" aria-controls="menuDropdown" title="Menu">☰</button>
+      <div id="menuDropdown" class="dropdown" role="menu" aria-hidden="true">
+        <a href="/" class="item" role="menuitem">Home</a>
+        <a href="micro_strategy.html" class="item" role="menuitem">Dashboard</a>
       </div>
     </nav>
   </header>
 
   <div class="wrap">
-    <!-- ===== Live Data: schema-driven snapshot ===== -->
+    <!-- Live Data -->
     <div class="card col-12">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px">
-        <h2 style="margin:0">Live Data</h2>
-        <span id="modeBadge" class="badge">Depth: L1</span>
+      <h2>Live Data</h2>
+      <!-- Live toggle + frequency -->
+      <div class="boxed" style="margin-bottom:12px; display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="color:#cbd5e1;">Live:</span>
+          <div class="seg" role="group" aria-label="Live toggle">
+            <button id="liveOff" class="active" aria-pressed="true">No</button>
+            <button id="liveOn" aria-pressed="false">Yes</button>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="color:#cbd5e1;">Frequency:</span>
+          <select id="liveFreq" style="appearance:none;background:rgba(255,255,255,0.06);color:#e5e7eb;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 10px" disabled>
+            <option value="5">5 ms</option>
+            <option value="20">20 ms</option>
+            <option value="50" selected>50 ms</option>
+            <option value="100">100 ms</option>
+            <option value="200">200 ms</option>
+            <option value="500">500 ms</option>
+            <option value="1000">1 s</option>
+            <option value="5000">5 s</option>
+          </select>
+        </div>
       </div>
-
-      <!-- Depth Level selection -->
-      <div class="seg" style="margin-bottom:16px;">
-        <button id="depthL1" class="active" aria-pressed="true">L1 — Top of Book</button>
-        <button id="depthL2" aria-pressed="false">L2 — 10 Levels</button>
-      </div>
-
+      <!-- Depth + Instrument picker -->
       <div class="row">
-        <!-- Category + Field pickers -->
+        <div class="col-12">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
+            <!-- Depth -->
+            <div>
+              <div class="seg">
+                <button id="depthL1" class="active" aria-pressed="true">L1 — Top of Book</button>
+                <button id="depthL2" aria-pressed="false">L2 — 10 Levels</button>
+              </div>
+            </div>
+
+            <!-- Instrument selector -->
+            <div class="inst-select">
+              <label>
+                <span>Root</span>
+                <select id="instRoot">
+                  <option value="ZT">2Y (ZT)</option>
+                  <option value="ZF">5Y (ZF)</option>
+                  <option value="ZN" selected>10Y (ZN)</option>
+                  <option value="ZB">30Y (ZB)</option>
+                  <option value="TN">Ultra 10Y (TN)</option>
+                  <option value="UB">Ultra Bond (UB)</option>
+                </select>
+              </label>
+              <label>
+                <span>Month</span>
+                <select id="instMonth">
+                  <option value="F">Jan (F)</option><option value="G">Feb (G)</option><option value="H">Mar (H)</option>
+                  <option value="J">Apr (J)</option><option value="K">May (K)</option><option value="M">Jun (M)</option>
+                  <option value="N">Jul (N)</option><option value="Q">Aug (Q)</option><option value="U" selected>Sep (U)</option>
+                  <option value="V">Oct (V)</option><option value="X">Nov (X)</option><option value="Z">Dec (Z)</option>
+                </select>
+              </label>
+              <label>
+                <span>Year</span>
+                <select id="instYear"></select>
+              </label>
+              <div class="inst-actions">
+                <span class="inst-preview" id="instPreview">Preview: ZNU5</span>
+                <button id="instAdd" class="seg">Add</button>
+                <button id="instClear" class="seg">Clear</button>
+              </div>
+            </div>
+
+            <!-- Active instruments -->
+            <div id="activeInstruments" class="legend" style="margin-top:4px"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <!-- Schema Browser -->
         <div class="col-5">
-          <div class="card schema-panel" style="padding:12px;">
-            <h3 style="margin:0 0 8px;color:#cbd5e1">Schema Browser</h3>
-            <p style="color:var(--muted);margin:0 0 8px">Pick <strong>categories</strong> then choose <strong>fields</strong>. The list below scrolls instead of expanding the page.</p>
-
-            <!-- Category pills -->
-            <div id="catList" class="legend cats"></div>
-
-            <!-- Scrollable field box -->
-            <div class="fields-scroll">
-              <div class="sticky-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px;">
+          <div class="card" style="padding:12px;">
+            <h3 style="margin-bottom:8px">Schema Browser</h3>
+            <p style="color:var(--muted);margin-top:0">Pick <strong>categories</strong> then choose <strong>fields</strong>. Only selected fields appear in the snapshot table.</p>
+            <div id="catList" class="legend" style="margin:8px 0 12px 0"></div>
+            <div class="card" style="padding:12px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
                 <h4 id="fieldsTitle" style="margin:0;color:#cbd5e1">Fields</h4>
                 <div>
-                  <button id="btnSelectAll" class="seg"><span style="padding:6px 10px;display:inline-block">Select All</span></button>
-                  <button id="btnClearSel" class="seg" style="margin-left:6px"><span style="padding:6px 10px;display:inline-block">Clear</span></button>
+                  <button id="btnSelectAll" class="seg">Select All</button>
+                  <button id="btnClearSel" class="seg" style="margin-left:6px">Clear</button>
                 </div>
               </div>
-              <div id="fieldBox" class="checkbox-group"></div>
+              <div id="fieldBox" class="checkbox-group" style="margin-top:10px"></div>
             </div>
           </div>
         </div>
 
-        <!-- Live snapshot table -->
+        <!-- Live Snapshot Table -->
         <div class="col-7">
           <div class="card" style="padding:12px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -307,95 +225,73 @@
       </div>
     </div>
 
-    <!-- ===== Forecast Controls: timestep + horizon ===== -->
-    <div class='card col-12' style='margin-top:16px;'>
+    <!-- Forecast Settings -->
+    <div class="card col-12" style="margin-top:16px;">
       <h2>Forecast Settings</h2>
-      <div class='row'>
-        <div class='col-6'>
+      <div class="row">
+        <div class="col-6">
           <h3>Timestep</h3>
-          <div class='forecast-box'>
-            <div class='checkbox-group' id='tsBox'></div>
-          </div>
+          <div class="checkbox-group boxed" id="tsBox"></div>
         </div>
-        <div class='col-6'>
+        <div class="col-6">
           <h3>Forecast Horizon</h3>
-          <div class='forecast-box'>
-            <div class='checkbox-group' id='hzBox'></div>
-          </div>
+          <div class="checkbox-group boxed" id="hzBox"></div>
         </div>
       </div>
     </div>
 
-    <!-- ===== Forecast Analysis: PRE & POST ===== -->
+    <!-- Forecast Analysis -->
     <div class="card col-12 analysis" style="margin-top:16px;">
       <h2>Forecast Analysis</h2>
-      <p style="color:var(--muted);margin-top:-4px">PRE = T−window; POST = T+window. Left Y-axis: <strong>ticks</strong> (−50…+50). Right Y-axis: <strong>classification</strong> (Down / Current / Up).</p>
+      <p style="color:var(--muted);margin-top:-4px">PRE = T−window; POST = T+window. Left Y-axis: <strong>ticks</strong> (−50…+50). Right side labels: <strong>classification</strong> (Down / Current / Up).</p>
       <div class="grid">
         <div class="col-6">
-          <div class="chart-box">
-            <h3>PRE</h3>
-            <canvas id="chartPre" width="520" height="280"></canvas>
-          </div>
+          <h3>PRE</h3>
+          <div class="chart-box"><canvas id="chartPre" width="520" height="280"></canvas></div>
         </div>
         <div class="col-6">
-          <div class="chart-box">
-            <h3>POST</h3>
-            <canvas id="chartPost" width="520" height="280"></canvas>
-          </div>
+          <h3>POST</h3>
+          <div class="chart-box"><canvas id="chartPost" width="520" height="280"></canvas></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ===== App Script ===== -->
   <script>
-    /* ---------- Header dropdown (single, robust) ---------- */
-    (function(){
-      const btn=document.getElementById('qyBtn'), menu=document.getElementById('qyMenu');
-      if(!btn||!menu) return;
-      menu.classList.add('qy-hidden'); btn.setAttribute('aria-expanded','false');
-      let t0=0, now=()=>performance.now();
-      const open=()=>{menu.classList.remove('qy-hidden');btn.setAttribute('aria-expanded','true');t0=now();};
-      const close=()=>{menu.classList.add('qy-hidden');btn.setAttribute('aria-expanded','false');};
-      const stop=e=>{e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation();};
-      btn.addEventListener('pointerdown',stop,true);
-      btn.addEventListener('click',(e)=>{stop(e);menu.classList.contains('qy-hidden')?open():close();},true);
-      menu.addEventListener('pointerdown',stop,true);
-      document.addEventListener('pointerdown',(e)=>{if(now()-t0<160) return; if(!menu.contains(e.target)&&!btn.contains(e.target)) close();},true);
-      document.addEventListener('keydown',(e)=>{if(e.key==='Escape') close();},true);
-      menu.querySelectorAll('a[data-qy]').forEach(a=>a.addEventListener('click',(e)=>{stop(e);close();setTimeout(()=>location.href=a.href,10);},true));
-    })();
+    // ---------------- Header menu toggle ----------------
+    const menuBtn = document.getElementById('menuBtn');
+    const menuDropdown = document.getElementById('menuDropdown');
+    function setMenu(open){
+      if (open){ menuDropdown.classList.add('open'); menuBtn.setAttribute('aria-expanded','true'); }
+      else { menuDropdown.classList.remove('open'); menuBtn.setAttribute('aria-expanded','false'); }
+    }
+    menuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); setMenu(!menuDropdown.classList.contains('open')); });
+    document.addEventListener('click', (e)=>{ if (!menuDropdown.contains(e.target) && e.target!==menuBtn){ setMenu(false); } });
 
-    /* ---------- Depth-aware Schema ---------- */
-    // TODO: Replace arrays with exact lists from your Excel when ready.
+    // ---------------- Schema (L1/L2) ----------------
     const SCHEMA = {
-      L1: {
-        cats: {
-          "Event Metadata": ["ts_event","release_ts_et","release_ts_utc","window_type","window_start_utc","window_end_utc","symbol"],
-          "Top-of-Book (L1)": ["rtype","action","side","price","size","spread"],
-          "Derived Book Features": ["mid","depth_bid","depth_ask","obi","microprice","d_best_bid_px","d_best_ask_px","d_best_bid_sz","d_best_ask_sz"],
-          "Volatility & Returns": ["rv_5s","rv_30s"],
-          "Trades (1s aggregates)": ["trades_per_sec","volume_1s","vwap_1s","ofi_1s"],
-          "Macro Fields": ["macro_month","nfp","nfp_rev","unemp","unemp_rev","nfp_forecast","unemp_forecast","nfp_surprise_abs","nfp_surprise_rel","unemp_surprise_abs","unemp_surprise_rel"]
-        }
-      },
-      L2: {
-        cats: {
-          "Event Metadata": ["ts_event","release_ts_et","release_ts_utc","window_type","window_start_utc","window_end_utc","symbol"],
-          "Order Book Levels (L2)": ["bid_px_00..09","ask_px_00..09","bid_sz_00..09","ask_sz_00..09"],
-          "Depth Aggregates": ["depth_bid","depth_ask","top3_depth_bid","top3_depth_ask","imbalance_by_bands"],
-          "Derived Book Features": ["mid","spread","obi","microprice","d_best_bid_px","d_best_ask_px","d_best_bid_sz","d_best_ask_sz"],
-          "Volatility & Returns": ["rv_5s","rv_30s"],
-          "Trades (1s aggregates)": ["trades_per_sec","volume_1s","vwap_1s","ofi_1s"],
-          "Macro Fields": ["macro_month","nfp","nfp_rev","unemp","unemp_rev","nfp_forecast","unemp_forecast","nfp_surprise_abs","nfp_surprise_rel","unemp_surprise_abs","unemp_surprise_rel"]
-        }
-      }
+      L1: { cats: {
+        "Event Metadata": ["ts_event","release_ts_et","release_ts_utc","window_type","window_start_utc","window_end_utc"],
+        "Order book state": ["rtype","publisher_id","instrument_id","action","side_x","depth","price_x","size_x","flags","sequence","price_level","symbol","stype_in"],
+        "Derived book features": ["mid","spread","depth_bid","depth_ask","obi","microprice","d_best_bid_px","d_best_ask_px"],
+        "Vol/Return stats": ["rv_5s","rv_30s"],
+        "Trade-related": ["trade_price","trade_size","trade_side","ts_1s","trades_per_sec","volume_1s","vwap_1s","ofi_1s"],
+        "Macro (constant this month)": ["macro_month","nfp","nfp_rev","unemp","unemp_rev","nfp_forecast","unemp_forecast","nfp_surprise_abs","nfp_surprise_rel","unemp_surprise_abs","unemp_surprise_rel"]
+      }},
+      L2: { cats: {
+        "Event Metadata": ["ts_event","release_ts_et","release_ts_utc","window_type","window_start_utc","window_end_utc"],
+        "Order book L2 (10 levels)": ["bid_px_00","ask_px_00","bid_sz_00","ask_sz_00","bid_px_01","ask_px_01","bid_sz_01","ask_sz_01","...","bid_px_09","ask_px_09","bid_sz_09","ask_sz_09"],
+        "Derived book features": ["mid","spread","depth_bid","depth_ask","obi","microprice","d_best_bid_px","d_best_ask_px"],
+        "Vol/Return stats": ["rv_5s","rv_30s"],
+        "Trade-related": ["trade_price","trade_size","trade_side","ts_1s","trades_per_sec","volume_1s","vwap_1s","ofi_1s"],
+        "Macro (constant this month)": ["macro_month","nfp","nfp_rev","unemp","unemp_rev","nfp_forecast","unemp_forecast","nfp_surprise_abs","nfp_surprise_rel","unemp_surprise_abs","unemp_surprise_rel"]
+      }}
     };
 
+    // ---------------- Elements ----------------
     const els = {
       depthL1: document.getElementById('depthL1'),
       depthL2: document.getElementById('depthL2'),
-      modeBadge: document.getElementById('modeBadge'),
       catList: document.getElementById('catList'),
       fieldBox: document.getElementById('fieldBox'),
       fieldsTitle: document.getElementById('fieldsTitle'),
@@ -406,45 +302,71 @@
       snapBody: document.getElementById('snapBody'),
       chartPre: document.getElementById('chartPre'),
       chartPost: document.getElementById('chartPost'),
+      instRoot: document.getElementById('instRoot'),
+      instMonth: document.getElementById('instMonth'),
+      instYear: document.getElementById('instYear'),
+      instPreview: document.getElementById('instPreview'),
+      instAdd: document.getElementById('instAdd'),
+      instClear: document.getElementById('instClear'),
+      activeInstruments: document.getElementById('activeInstruments'),
       tsBox: document.getElementById('tsBox'),
       hzBox: document.getElementById('hzBox'),
+      liveOff: document.getElementById('liveOff'),
+      liveOn: document.getElementById('liveOn'),
+      liveFreq: document.getElementById('liveFreq'),
     };
 
-    // --- Macro cache: fixed demo values (constant until next "month")
-    const MACRO_CONST = {
-      macro_month: "2025-08-01",
-      nfp: 180000,               // in thousands, demo between 50k–350k
-      nfp_rev: 0,                // can keep neutral for demo
-      unemp: 4.2,
-      unemp_rev: 0,
-      nfp_forecast: 120000,
-      unemp_forecast: 4.3,
-      nfp_surprise_abs: 50000,
-      nfp_surprise_rel: 50000,
-      unemp_surprise_abs: 0.1,
-      unemp_surprise_rel: 0.1
-    };
-
-    const tsPalette = { '1ms':'#38bdf8','5ms':'#60a5fa','10ms':'#22d3ee','20ms':'#22c55e','50ms':'#84cc16','100ms':'#f59e0b','1s':'#a78bfa' };
+    // ---------------- State ----------------
     const state = {
       depth: 'L1',
       activeCat: null,
-      selected: new Set(),        // "Category|Field"
-      timesteps: new Set(['20ms','100ms']),
-      horizons:  new Set(['200ms','1s','5s'])
+      selected: new Set(),
+      symbols: new Set(),
+      timesteps: new Set(['5ms','20ms','50ms','100ms','1s']),     // expanded
+      horizons: new Set(['200ms','1s','5s','10s']),               // includes 1s / 5s
+      live: false,
+      refreshMs: 50,
     };
 
-    function keyOf(cat, field){ return `${cat}|${field}`; }
+    // ---------------- Macro (constant values) ----------------
+    const MACRO_FIXED = {
+      macro_month: (()=>{
+        const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+      })(),
+      nfp: Math.floor(Math.random()*301)+50,          // 50–350 (K)
+      nfp_rev: 0,
+      unemp: 4.2,
+      unemp_rev: 0.0,
+      nfp_forecast: 120,
+      unemp_forecast: 4.1,
+      nfp_surprise_abs: 50,
+      nfp_surprise_rel: 50,
+      unemp_surprise_abs: 0.1,
+      unemp_surprise_rel: 0.1,
+    };
+
+    function mockValue(header){
+      if (header in MACRO_FIXED) return MACRO_FIXED[header];
+      if (/mid|price|vwap/i.test(header)) return (100 + Math.random()*0.6).toFixed(3);
+      if (/spread/i.test(header)) return (Math.random()*2).toFixed(3);
+      if (/depth|size|volume/i.test(header)) return Math.floor(Math.random()*2000);
+      if (/rv_|return/i.test(header)) return (Math.random()*0.5).toFixed(4);
+      if (/obi|microprice/i.test(header)) return (Math.random()*2-1).toFixed(4);
+      if (/ts_|release|window_/i.test(header)) return new Date().toISOString();
+      return Math.random().toString(36).slice(2,7);
+    }
+
+    // ---------------- Schema rendering ----------------
+    function keyOf(cat,field){ return `${cat}|${field}`; }
 
     function renderCategories(){
-      const cats = Object.keys(SCHEMA[state.depth].cats);
-      els.catList.innerHTML = '';
-      cats.forEach(cat => {
+      const conf = SCHEMA[state.depth];
+      els.catList.innerHTML = ''; state.activeCat = state.activeCat || Object.keys(conf.cats)[0];
+      Object.entries(conf.cats).forEach(([cat, fields]) => {
         const btn = document.createElement('button');
         btn.className = 'seg';
         btn.style.padding = '6px 10px';
-        btn.textContent = `${cat} (${SCHEMA[state.depth].cats[cat].length})`;
-        if (state.activeCat === null) state.activeCat = cat;
+        btn.textContent = `${cat} (${fields.length})`;
         if (state.activeCat === cat) btn.classList.add('active');
         btn.onclick = () => { state.activeCat = cat; renderCategories(); renderFields(); };
         els.catList.appendChild(btn);
@@ -458,17 +380,15 @@
       fields.forEach(f => {
         const label = document.createElement('label');
         label.className = 'checkbox-group-item';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.value = keyOf(state.activeCat, f);
+        const cb = document.createElement('input'); cb.type='checkbox'; cb.value=keyOf(state.activeCat,f);
         cb.checked = state.selected.has(cb.value);
-        if (cb.checked) label.classList.add('selected');
         cb.onchange = () => {
           if (cb.checked) state.selected.add(cb.value); else state.selected.delete(cb.value);
-          label.classList.toggle('selected', cb.checked);
           renderActiveTags(); buildSnapshot();
+          label.classList.toggle('selected', cb.checked);
         };
-        label.appendChild(cb);
-        label.appendChild(document.createTextNode(' ' + f));
+        label.appendChild(cb); label.appendChild(document.createTextNode(f));
+        if (cb.checked) label.classList.add('selected');
         els.fieldBox.appendChild(label);
       });
     }
@@ -477,227 +397,244 @@
       els.activeTags.innerHTML = '';
       Array.from(state.selected).forEach(k => {
         const [cat, field] = k.split('|');
-        const t = document.createElement('span');
-        t.className = 'tag';
-        t.textContent = `${cat}: ${field}`;
+        const t = document.createElement('span'); t.className = 'tag'; t.textContent = `${cat}: ${field}`;
         els.activeTags.appendChild(t);
       });
     }
 
     els.btnSelectAll.onclick = () => {
-      (SCHEMA[state.depth].cats[state.activeCat] || [])
-        .forEach(f => state.selected.add(keyOf(state.activeCat, f)));
+      const fields = SCHEMA[state.depth].cats[state.activeCat] || [];
+      fields.forEach(f => state.selected.add(keyOf(state.activeCat, f)));
       renderFields(); renderActiveTags(); buildSnapshot();
     };
     els.btnClearSel.onclick = () => {
-      (SCHEMA[state.depth].cats[state.activeCat] || [])
-        .forEach(f => state.selected.delete(keyOf(state.activeCat, f)));
+      const fields = SCHEMA[state.depth].cats[state.activeCat] || [];
+      fields.forEach(f => state.selected.delete(keyOf(state.activeCat, f)));
       renderFields(); renderActiveTags(); buildSnapshot();
     };
 
-    function mockValue(header){
-        // Macro fields: constant (monthly)
-        if (/^macro_month$/i.test(header)) return MACRO_CONST.macro_month;
-        if (/^nfp$/i.test(header)) return MACRO_CONST.nfp;
-        if (/^nfp_rev$/i.test(header)) return MACRO_CONST.nfp_rev;
-        if (/^unemp$/i.test(header)) return MACRO_CONST.unemp;
-        if (/^unemp_rev$/i.test(header)) return MACRO_CONST.unemp_rev;
-        if (/^nfp_forecast$/i.test(header)) return MACRO_CONST.nfp_forecast;
-        if (/^unemp_forecast$/i.test(header)) return MACRO_CONST.unemp_forecast;
-        if (/^nfp_surprise_abs$/i.test(header)) return MACRO_CONST.nfp_surprise_abs;
-        if (/^nfp_surprise_rel$/i.test(header)) return MACRO_CONST.nfp_surprise_rel;
-        if (/^unemp_surprise_abs$/i.test(header)) return MACRO_CONST.unemp_surprise_abs;
-        if (/^unemp_surprise_rel$/i.test(header)) return MACRO_CONST.unemp_surprise_rel;
-
-        if (/mid|price|vwap/i.test(header)) return (100 + Math.random()*0.5).toFixed(3);
-        if (/spread/i.test(header)) return (Math.random()*2).toFixed(3);
-        if (/depth|size|volume/i.test(header)) return Math.floor(Math.random()*1500);
-        if (/rv_|volatility|return/i.test(header)) return (Math.random()*0.5).toFixed(4);
-        if (/obi|microprice/i.test(header)) return (Math.random()*2-1).toFixed(4);
-        if (/nfp$/i.test(header)) return (Math.floor(Math.random()*700) - 100); // −100 to 600 (thousands)
-        if (/nfp_rev/i.test(header)) return (Math.floor(Math.random()*201) - 100); // −100 to 100
-        if (/unemp$/i.test(header)) return (Math.random()*6+3).toFixed(1); // 3%–9%
-        if (/unemp_rev/i.test(header)) return (Math.random()*0.5-0.25).toFixed(1); // ±0.25
-        if (/window|release|ts_event/i.test(header)) return new Date(Date.now()).toISOString();
-        return Math.random().toString(36).substring(2,7);
+    // ---------------- Instrument picker ----------------
+    function yearLastDigit(y){ return String(y).slice(-1); }
+    (function fillYears(){
+      const now = new Date(); const y0 = now.getFullYear();
+      for (let y = y0; y <= y0+3; y++){
+        const opt = document.createElement('option');
+        opt.value = String(y); opt.textContent = y; if (y===y0) opt.selected=true;
+        els.instYear.appendChild(opt);
       }
+    })();
+    function composeRawSymbol(){
+      const root = els.instRoot.value; const mon = els.instMonth.value; const yr = yearLastDigit(els.instYear.value);
+      return `${root}${mon}${yr}`;
+    }
+    function refreshInstPreview(){ els.instPreview.textContent = `Preview: ${composeRawSymbol()}`; }
+    function renderActiveInstruments(){
+      els.activeInstruments.innerHTML = '';
+      Array.from(state.symbols).forEach(sym => {
+        const chip = document.createElement('span'); chip.className = 'badge-chip'; chip.textContent = sym + ' ';
+        const x = document.createElement('button'); x.setAttribute('aria-label','remove'); x.textContent = '✕';
+        x.onclick = () => { state.symbols.delete(sym); renderActiveInstruments(); buildSnapshot(); };
+        chip.appendChild(x); els.activeInstruments.appendChild(chip);
+      });
+    }
+    [els.instRoot, els.instMonth, els.instYear].forEach(el => el.addEventListener('change', refreshInstPreview));
+    els.instAdd.addEventListener('click', () => { state.symbols.add(composeRawSymbol()); renderActiveInstruments(); buildSnapshot(); });
+    els.instClear.addEventListener('click', () => {
+      // Clear instruments
+      state.symbols.clear();
+      renderActiveInstruments();
 
-    function buildSnapshot() {
-      const headerEl = els.snapHeader;
-      const bodyEl   = els.snapBody;
+      // Also clear selected fields & UI
+      state.selected.clear();
+      renderFields();       // re-render the checkbox list (all unchecked)
+      renderActiveTags();   // remove the field chips
+      buildSnapshot();      // rebuild table (now empty since no symbol & no fields)
+    });
+    refreshInstPreview(); renderActiveInstruments();
 
-      // Defensive: ensure scaffold exists
-      if (!headerEl || !bodyEl) {
-        console.warn('[Snapshot] Missing table scaffold (#snapHeader/#snapBody).');
+    // ---------------- Snapshot table (with Symbol col visible if ≥1) ----------------
+    function buildSnapshot(){
+      const symList = Array.from(state.symbols);
+      const fieldNames = Array.from(state.selected).map(k => k.split('|')[1]);
+
+      // If nothing is selected and no symbols, blank the table
+      if (symList.length === 0 && fieldNames.length === 0) {
+        els.snapHeader.innerHTML = '';
+        els.snapBody.innerHTML = '';
         return;
       }
 
-      const symList    = Array.from(state.symbols || []);
-      const showSymbol = symList.length > 1;                 // only show Symbol if >1 selected
-      const fieldNames = Array.from(state.selected || []).map(k => k.split('|')[1]); // selected fields only
+      const showSymbol = symList.length >= 1;
+      const headers = ['Time', ...(showSymbol?['Symbol']:[]), ...fieldNames];
 
-      // ----- Build headers
-      const headers = ['Time', ...(showSymbol ? ['Symbol'] : []), ...fieldNames];
-      headerEl.innerHTML = '';
-      headers.forEach((h, i) => {
+      // Header
+      els.snapHeader.innerHTML = '';
+      headers.forEach((h,i)=>{
         const th = document.createElement('th');
         th.textContent = h;
-        if (i === 0) th.classList.add('sticky');            // freeze first column label
-        headerEl.appendChild(th);
+        if (i === 0) th.classList.add('sticky');
+        els.snapHeader.appendChild(th);
       });
 
-      // ----- Build 10 demo rows
-      bodyEl.innerHTML = '';
+      // Body
+      els.snapBody.innerHTML = '';
       const now = Date.now();
-      for (let i = 9; i >= 0; i--) {
+      for (let i=9;i>=0;i--){
         const tr = document.createElement('tr');
-        const ts = new Date(now - i * 500).toISOString();
-
-        // In EXACT same order as headers
-        const row = [];
-        row.push(ts);
-        if (showSymbol) row.push(symList.length ? symList[(9 - i) % symList.length] : '—');
-        row.push(...fieldNames.map(h => mockValue(h)));
-
-        row.forEach((val, j) => {
+        const ts = new Date(now - i*500).toISOString();
+        const vals = [ts];
+        if (showSymbol) vals.push(symList[(9-i) % symList.length]);
+        vals.push(...fieldNames.map(h => mockValue(h)));
+        vals.forEach((v,j)=>{
           const td = document.createElement('td');
-          td.textContent = val;
-          if (j === 0) td.classList.add('sticky');          // freeze the first column cells
+          td.textContent = v;
+          if (j === 0) td.classList.add('sticky');
           tr.appendChild(td);
         });
-
-        bodyEl.appendChild(tr);
-      }
-
-      // Optional empty state if only Time and no fields selected (and no symbol)
-      if (headers.length === 1 && bodyEl.children.length === 0) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.textContent = 'Select fields on the left to populate the snapshot.';
-        tr.appendChild(td);
-        bodyEl.appendChild(tr);
+        els.snapBody.appendChild(tr);
       }
     }
 
-    /* ---------- Timestep + Horizon selectors ---------- */
-    const TS_OPTIONS = ['1ms','5ms','10ms','20ms','50ms','100ms','1s'];
-    const HZ_OPTIONS = ['20ms','50ms','100ms','200ms','500ms','1s','5s','10s'];
+    // ---------------- Forecast controls ----------------
+    const TS_OPTIONS = ['5ms','20ms','50ms','100ms','1s','custom'];   // expanded timesteps
+    const HZ_OPTIONS = ['200ms','1s','5s','10s'];                     // horizons include 1s & 5s
 
-    function makeSelLabel(text, set){
-      const label = document.createElement('label');
-      label.className = 'checkbox-group-item';
-      const cb = document.createElement('input');
-      cb.type='checkbox'; cb.value=text; cb.style.marginRight='6px'; cb.checked=set.has(text);
-      if (cb.checked) label.classList.add('selected');
-      cb.addEventListener('change', ()=>{
-        if (cb.checked) { set.add(text); label.classList.add('selected'); }
-        else { set.delete(text); label.classList.remove('selected'); }
-        updateForecast(Array.from(state.timesteps), Array.from(state.horizons));
+    function renderChecks(container, options, setRef){
+      container.innerHTML=''; options.forEach(opt=>{
+        const label=document.createElement('label'); label.className='checkbox-group-item';
+        const cb=document.createElement('input'); cb.type='checkbox'; cb.value=opt; cb.checked=setRef.has(opt);
+        cb.onchange=()=>{ if (cb.checked) setRef.add(opt); else setRef.delete(opt); drawAllCharts(); };
+        label.appendChild(cb); label.appendChild(document.createTextNode(opt));
+        if (cb.checked) label.classList.add('selected'); container.appendChild(label);
       });
-      label.appendChild(cb);
-      label.appendChild(document.createTextNode(text));
-      return label;
     }
-    function renderTsHzBoxes(){
-      tsBox.innerHTML=''; hzBox.innerHTML='';
-      TS_OPTIONS.forEach(opt => tsBox.appendChild(makeSelLabel(opt, state.timesteps)));
-      HZ_OPTIONS.forEach(opt => hzBox.appendChild(makeSelLabel(opt, state.horizons)));
-    }
+    renderChecks(els.tsBox, TS_OPTIONS, state.timesteps);
+    renderChecks(els.hzBox, HZ_OPTIONS, state.horizons);
 
-    // Padding around plot area
-    const PAD_L = 50, PAD_B = 40, PAD_T = 20, PAD_R = 90; // <- extra right room for labels
+    // ---------------- Charts (PRE/POST) with right-side labels ----------------
+    const PAD_L=50, PAD_B=40, PAD_T=20, PAD_R=90;
+    const tsPalette = { '5ms':'#60a5fa','20ms':'#22c55e','50ms':'#14b8a6','100ms':'#f59e0b','1s':'#a78bfa','custom':'#f43f5e' };
+    function mapRegY(v,H){ const top=PAD_T,bottom=H-PAD_B; return bottom - ((v+50)/100)*(bottom-top); }
+    function mapClsY(v,H){ const top=PAD_T,bottom=H-PAD_B; return bottom - ((v+1)/2)*(bottom-top); }
+    function drawAxes(ctx, W, H){
+      ctx.clearRect(0,0,W,H);
+      ctx.strokeStyle='rgba(255,255,255,0.15)';
 
-    function mapRegY(v, H) {
-      const top = PAD_T, bottom = H - PAD_B;
-      return bottom - ((v + 50) / 100) * (bottom - top);
-    }
+      // Left axis (ticks)
+      ctx.beginPath(); 
+      ctx.moveTo(50,20); 
+      ctx.lineTo(50,H-40); 
+      ctx.stroke();
 
-    function mapClsY(v, H) {
-      const top = PAD_T, bottom = H - PAD_B;
-      return bottom - ((v + 1) / 2) * (bottom - top);
-    }
+      // Right axis (classification) flush with canvas edge
+      const rightX = W - 5;
+      ctx.beginPath(); 
+      ctx.moveTo(rightX,20); 
+      ctx.lineTo(rightX,H-40); 
+      ctx.stroke();
 
-    function drawAxes(ctx, W, H) {
-      ctx.clearRect(0, 0, W, H);
+      // Bottom axis
+      ctx.beginPath(); 
+      ctx.moveTo(50,H-40); 
+      ctx.lineTo(rightX,H-40); 
+      ctx.stroke();
 
-      // Axes
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      // left y
-      ctx.beginPath(); ctx.moveTo(PAD_L, PAD_T); ctx.lineTo(PAD_L, H - PAD_B); ctx.stroke();
-      // right y (plot edge)
-      const rightX = W - PAD_R;
-      ctx.beginPath(); ctx.moveTo(rightX, PAD_T); ctx.lineTo(rightX, H - PAD_B); ctx.stroke();
-      // x
-      ctx.beginPath(); ctx.moveTo(PAD_L, H - PAD_B); ctx.lineTo(rightX, H - PAD_B); ctx.stroke();
-
-      // Left y ticks (regression, ticks)
-      ctx.fillStyle = '#e5e7eb'; ctx.font = '11px sans-serif';
-      [-50, -25, 0, 25, 50].forEach(t => {
-        const y = mapRegY(t, H);
-        ctx.beginPath(); ctx.moveTo(PAD_L - 5, y); ctx.lineTo(PAD_L, y); ctx.stroke();
-        ctx.fillText(String(t), PAD_L - 32, y + 3);
+      // Tick labels (left)
+      ctx.fillStyle='#e5e7eb'; 
+      ctx.font='11px sans-serif';
+      [-50,-25,0,25,50].forEach(t=>{
+        const y=mapRegY(t,H);
+        ctx.beginPath(); ctx.moveTo(45,y); ctx.lineTo(50,y); ctx.stroke();
+        ctx.fillText(String(t),14,y+3);
       });
-      ctx.fillText('ticks', PAD_L - 32, PAD_T - 8);
+      ctx.fillText('ticks',14,12);
 
-      // Right side labels OUTSIDE the right axis
-      const labelX = rightX + 10; // outside to the right
-      [{ v: -1, l: 'Down' }, { v: 0, l: 'Current' }, { v: 1, l: 'Up' }].forEach(({ v, l }) => {
-        const y = mapClsY(v, H);
-        ctx.beginPath(); ctx.moveTo(rightX, y); ctx.lineTo(rightX + 5, y); ctx.stroke();
-        ctx.fillText(l, labelX, y + 3);
+      // Classification labels (aligned to right axis)
+      [{v:-1,l:'Down'},{v:0,l:'Current'},{v:1,l:'Up'}].forEach(({v,l})=>{
+        const y=mapClsY(v,H);
+        ctx.beginPath(); ctx.moveTo(rightX,y); ctx.lineTo(rightX+5,y); ctx.stroke();
+        ctx.fillText(l,rightX-40,y+3);  // place just to the left of axis
       });
-      ctx.fillText('classification', labelX, PAD_T - 8);
+
+      // Axis title — right-aligned at axis
+      ctx.textAlign = "right";
+      ctx.fillText('classification', rightX-2, 12);
+      ctx.textAlign = "start"; // reset to default
     }
     function genSignals(post){
-      const regStd = post?25:8; const clsStd = post?0.9:0.4;
+      const regStd = post?25:8, clsStd = post?0.9:0.4;
       const reg=()=>Math.max(-50,Math.min(50,Math.round(regStd*(Math.random()*2-1))));
       const cls=()=>{const r=(Math.random()*2-1)*clsStd; return r>0.33?1:r<-0.33?-1:0};
       return {reg,cls};
     }
-    function drawChart(canvas, post, timesteps, horizons){
-      const ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+    function drawChart(canvas,post){
+      const ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;
       drawAxes(ctx,W,H);
+      const horizons=Array.from(state.horizons), timesteps=Array.from(state.timesteps);
+      const plotW=(W-PAD_R)-PAD_L, groupW=Math.max(80, plotW/Math.max(1,horizons.length)), barW=12;
       const sig=genSignals(post);
-      const hzArr=[...horizons]; const tsArr=[...timesteps];
-      const groupW=Math.max(80,(W-120)/hzArr.length); const barW=12;
-      hzArr.forEach((hz,gi)=>{
-        const gx=60+gi*groupW; ctx.fillStyle='#e5e7eb'; ctx.font='12px sans-serif'; ctx.fillText(hz,gx+groupW/3,H-22);
-        tsArr.forEach((ts,ti)=>{
-          const r=sig.reg(); const c=sig.cls();
-          const rc=tsPalette[ts] || '#f59e0b';
-          const cc=c===1?'#10b981':(c===-1?'#ef4444':'#9ca3af');
+      horizons.forEach((hz,gi)=>{
+        const gx=PAD_L+gi*groupW; ctx.fillStyle='#e5e7eb'; ctx.font='12px sans-serif'; ctx.fillText(hz,gx+groupW/3,H-PAD_B+18);
+        timesteps.forEach((ts,ti)=>{
+          const r=sig.reg(), c=sig.cls(), rc=tsPalette[ts]||'#9ca3af', cc=c===1?'#10b981':(c===-1?'#ef4444':'#9ca3af');
           const xR=gx+ti*40; const y0=mapRegY(0,H); const yR=mapRegY(r,H);
-          ctx.fillStyle=rc; ctx.fillRect(xR,Math.min(y0,yR),barW,Math.abs(yR-y0));
-          const xC=xR+barW+4; const yC0=mapClsY(0,H); const yC=mapClsY(c,H);
+          ctx.fillStyle=rc; ctx.fillRect(xR,Math.min(y0,yR),barW,Math.abs(yR-y0)); // regression
+          const xC=xR+barW+4; const yC0=mapClsY(0,H); const yC=mapClsY(c,H);      // classification
           ctx.strokeStyle=cc; ctx.lineWidth=2; ctx.strokeRect(xC,Math.min(yC0,yC),barW,Math.abs(yC-yC0));
         });
       });
     }
-    function updateForecast(ts, hz){
-      drawChart(chartPre,false, ts, hz);
-      drawChart(chartPost,true,  ts, hz);
-    }
+    function drawAllCharts(){ drawChart(els.chartPre,false); drawChart(els.chartPost,true); }
 
-    /* ---------- Wiring ---------- */
-    function updateAll(){
-      renderCategories(); renderFields(); renderActiveTags(); buildSnapshot();
-      renderTsHzBoxes();
-      updateForecast(Array.from(state.timesteps), Array.from(state.horizons));
+    // ---------------- Depth bindings ----------------
+    function updateSchemaDepth(depth){
+      state.depth=depth; state.activeCat=null; state.selected.clear();
+      renderCategories(); renderFields(); renderActiveTags(); buildSnapshot(); drawAllCharts();
+      if (depth==='L1'){ els.depthL1.classList.add('active'); els.depthL2.classList.remove('active'); }
+      else { els.depthL2.classList.add('active'); els.depthL1.classList.remove('active'); }
     }
-    depthL1.addEventListener('click',()=>{
-      depthL1.classList.add('active'); depthL2.classList.remove('active');
-      state.depth='L1'; state.activeCat=null; state.selected.clear();
-      modeBadge.textContent='Depth: L1'; updateAll();
-    });
-    depthL2.addEventListener('click',()=>{
-      depthL2.classList.add('active'); depthL1.classList.remove('active');
-      state.depth='L2'; state.activeCat=null; state.selected.clear();
-      modeBadge.textContent='Depth: L2'; updateAll();
+    els.depthL1.addEventListener('click',()=>updateSchemaDepth('L1'));
+    els.depthL2.addEventListener('click',()=>updateSchemaDepth('L2'));
+
+    // ---------------- Live toggle + frequency ----------------
+    let liveTimer = null;
+    function restartLive(){
+      if (liveTimer) { clearInterval(liveTimer); liveTimer=null; }
+      if (state.live){
+        liveTimer = setInterval(()=>{ buildSnapshot(); drawAllCharts(); }, state.refreshMs);
+      }
+    }
+    function setLive(on){
+      state.live = on;
+      els.liveOn.classList.toggle('active', on);
+      els.liveOff.classList.toggle('active', !on);
+      els.liveOn.setAttribute('aria-pressed', String(on));
+      els.liveOff.setAttribute('aria-pressed', String(!on));
+      els.liveFreq.disabled = !on;
+      restartLive();
+    }
+    els.liveOff.addEventListener('click', ()=> setLive(false));
+    els.liveOn.addEventListener('click', ()=> setLive(true));
+    els.liveFreq.addEventListener('change', ()=>{
+      const ms = parseInt(els.liveFreq.value, 10);
+      if (!Number.isNaN(ms)) { state.refreshMs = ms; restartLive(); }
     });
 
-    // Init + periodic snapshot refresh
-    updateAll();
-    setInterval(buildSnapshot, 1000);
+    // ---------------- Init ----------------
+    // years + schema + first render
+    (function fillYears(){
+      const now = new Date(); const y0 = now.getFullYear();
+      for (let y = y0; y <= y0+3; y++){
+        const opt = document.createElement('option');
+        opt.value = String(y); opt.textContent = y; if (y===y0) opt.selected=true;
+        els.instYear.appendChild(opt);
+      }
+    })();
+    updateSchemaDepth('L1');
+    buildSnapshot();
+    drawAllCharts();
+    // Live starts OFF; user can enable and choose frequency
+
   </script>
 </body>
 </html>
