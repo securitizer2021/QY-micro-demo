@@ -42,6 +42,25 @@
       display:block;padding:10px 12px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:15px;
     }
     .dropdown a:hover{background:#f3f4f6}
+    .menu-btn {
+      font-size: 2rem;   /* increase size */
+      line-height: 1;    /* remove extra spacing */
+      border: none;
+      background: none;
+      cursor: pointer;
+    }
+    .logo {
+      display: inline-block;
+      padding: 0;       /* remove extra padding */
+      margin: 0;        /* remove extra margin */
+      line-height: 1;   /* collapse extra vertical spacing */
+    }
+
+    .logo img {
+      display: block;   /* removes inline whitespace */
+      width: auto;      /* increase size */
+      height: auto;     /* keep aspect ratio */
+    }
 
     /* ---------- Layout ---------- */
     .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
@@ -96,14 +115,19 @@
 <body>
   <!-- Header -->
   <header class="header-white" id="qy-header">
-    <a class="logo" href="https://quantumyield.ai" target="_blank" rel="noopener">
-      <img src="QY_logo_web.jpg" alt="Quantum Yield Logo" />
+    <a class="logo inline-block p-0 m-0 leading-none" href="https://quantumyield.ai" target="_blank" rel="noopener">
+      <img src="QY_logo_web.jpg" alt="Quantum Yield Logo" class="block w-20 h-auto" />
     </a>
     <h1 class="qy-header__title">Quantum Yield Microstructure Alpha Portal</h1>
     <nav class="nav">
-      <button id="menuBtn" class="menu-btn" aria-expanded="false" aria-haspopup="true" aria-controls="menuDropdown" title="Menu">☰</button>
+      <button id="menuBtn"
+        class="menu-btn"
+        aria-expanded="false" aria-haspopup="true"
+        aria-controls="menuDropdown" title="Menu">
+        ☰
+      </button>
       <div id="menuDropdown" class="dropdown" role="menu" aria-hidden="true">
-        <a href="/" class="item" role="menuitem">Home</a>
+        <a href="index.html" class="item" role="menuitem">Home</a>
         <a href="micro_strategy.html" class="item" role="menuitem">Dashboard</a>
       </div>
     </nav>
@@ -638,6 +662,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
