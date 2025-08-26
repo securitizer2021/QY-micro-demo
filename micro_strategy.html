@@ -145,6 +145,80 @@
       border-bottom: 1px solid rgba(255,255,255,0.08);
       z-index: 1;
     }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 400px;           /* vertical scroll if needed */
+      -webkit-overflow-scrolling: touch;
+      border-radius: 12px;
+    }
+
+    /* Sticky header row */
+    .table-sticky thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: rgba(11,18,32,0.95); /* match your dark bg */
+      backdrop-filter: blur(2px);
+    }
+
+    /* Sticky first column */
+    .table-sticky th.sticky,
+    .table-sticky td.sticky {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: rgba(11,18,32,0.95);
+    }
+
+    /* Narrow the Time column */
+    .table-sticky th.sticky,
+    .table-sticky td.sticky {
+      width: 140px;       /* adjust as needed */
+      max-width: 140px;
+      min-width: 140px;
+      white-space: nowrap; /* prevents wrapping */
+      overflow: hidden;
+      text-overflow: ellipsis; /* shows "…" if too long */
+    }
+
+    .table-wrap {
+        overflow: auto;
+        max-height: 420px;             /* vertical scroll if needed */
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+      }
+
+      /* Sticky header row */
+      .table-sticky thead th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: rgba(11,18,32,0.95);
+        backdrop-filter: blur(2px);
+      }
+
+      /* Sticky first column (Time) */
+      .table-sticky th.sticky,
+      .table-sticky td.sticky {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: rgba(11,18,32,0.95);
+        white-space: nowrap;
+        min-width: 140px; max-width: 140px; width: 140px;
+        text-overflow: ellipsis; overflow: hidden;
+      }
+
+      /* Make wide tables scroll nicely */
+      .table-sticky th, .table-sticky td {
+        white-space: nowrap;
+        min-width: 140px;
+      }
+    /* Special case: top-left cell (header + first col) */
+    .table-sticky thead th.sticky {
+      z-index: 4;
+    }
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -215,10 +289,12 @@
               <h3 style="margin:0;color:#cbd5e1">Live Feature Snapshot</h3>
               <div id="activeTags" class="legend"></div>
             </div>
-            <table>
-              <thead><tr id="snapHeader"></tr></thead>
-              <tbody id="snapBody"></tbody>
-            </table>
+            <div class="table-wrap">
+              <table class="table-sticky">
+                <thead><tr id="snapHeader"></tr></thead>
+                <tbody id="snapBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -439,17 +515,60 @@
         return Math.random().toString(36).substring(2,7);
       }
 
-    function buildSnapshot(){
-      const cols = ['Time', ...Array.from(state.selected).map(k => k.split('|')[1])];
-      els.snapHeader.innerHTML = '';
-      cols.forEach(h => { const th=document.createElement('th'); th.textContent=h; els.snapHeader.appendChild(th); });
-      els.snapBody.innerHTML = '';
+    function buildSnapshot() {
+      const headerEl = els.snapHeader;
+      const bodyEl   = els.snapBody;
+
+      // Defensive: ensure scaffold exists
+      if (!headerEl || !bodyEl) {
+        console.warn('[Snapshot] Missing table scaffold (#snapHeader/#snapBody).');
+        return;
+      }
+
+      const symList    = Array.from(state.symbols || []);
+      const showSymbol = symList.length > 1;                 // only show Symbol if >1 selected
+      const fieldNames = Array.from(state.selected || []).map(k => k.split('|')[1]); // selected fields only
+
+      // ----- Build headers
+      const headers = ['Time', ...(showSymbol ? ['Symbol'] : []), ...fieldNames];
+      headerEl.innerHTML = '';
+      headers.forEach((h, i) => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        if (i === 0) th.classList.add('sticky');            // freeze first column label
+        headerEl.appendChild(th);
+      });
+
+      // ----- Build 10 demo rows
+      bodyEl.innerHTML = '';
       const now = Date.now();
-      for (let i=9;i>=0;i--){
-        const tr=document.createElement('tr');
-        const vals=[new Date(now - i*500).toISOString(), ...cols.slice(1).map(mockValue)];
-        vals.forEach(v => { const td=document.createElement('td'); td.textContent=v; tr.appendChild(td); });
-        els.snapBody.appendChild(tr);
+      for (let i = 9; i >= 0; i--) {
+        const tr = document.createElement('tr');
+        const ts = new Date(now - i * 500).toISOString();
+
+        // In EXACT same order as headers
+        const row = [];
+        row.push(ts);
+        if (showSymbol) row.push(symList.length ? symList[(9 - i) % symList.length] : '—');
+        row.push(...fieldNames.map(h => mockValue(h)));
+
+        row.forEach((val, j) => {
+          const td = document.createElement('td');
+          td.textContent = val;
+          if (j === 0) td.classList.add('sticky');          // freeze the first column cells
+          tr.appendChild(td);
+        });
+
+        bodyEl.appendChild(tr);
+      }
+
+      // Optional empty state if only Time and no fields selected (and no symbol)
+      if (headers.length === 1 && bodyEl.children.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.textContent = 'Select fields on the left to populate the snapshot.';
+        tr.appendChild(td);
+        bodyEl.appendChild(tr);
       }
     }
 
@@ -546,6 +665,7 @@
   </script>
 </body>
 </html>
+
 
 
 
