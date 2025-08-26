@@ -597,20 +597,49 @@
       HZ_OPTIONS.forEach(opt => hzBox.appendChild(makeSelLabel(opt, state.horizons)));
     }
 
-    /* ---------- PRE/POST mock charts ---------- */
-    function mapRegY(v,H){ const top=20,bottom=H-40; return bottom - ((v+50)/100)*(bottom-top); }
-    function mapClsY(v,H){ const top=20,bottom=H-40; return bottom - ((v+1)/2)*(bottom-top); }
-    function drawAxes(ctx,W,H){
-      ctx.clearRect(0,0,W,H);
-      ctx.strokeStyle='rgba(255,255,255,0.15)';
-      ctx.beginPath(); ctx.moveTo(50,20); ctx.lineTo(50,H-40); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(W-30,20); ctx.lineTo(W-30,H-40); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(50,H-40); ctx.lineTo(W-30,H-40); ctx.stroke();
-      ctx.fillStyle='#e5e7eb'; ctx.font='11px sans-serif';
-      [-50,-25,0,25,50].forEach(t=>{ const y=mapRegY(t,H); ctx.beginPath(); ctx.moveTo(45,y); ctx.lineTo(50,y); ctx.stroke(); ctx.fillText(String(t),14,y+3);});
-      ctx.fillText('ticks',14,12);
-      [{v:-1,l:'Down'},{v:0,l:'Current'},{v:1,l:'Up'}].forEach(({v,l})=>{ const y=mapClsY(v,H); ctx.beginPath(); ctx.moveTo(W-30,y); ctx.lineTo(W-25,y); ctx.stroke(); ctx.fillText(l,W-110,y+3);});
-      ctx.fillText('classification',W-130,12);
+    // Padding around plot area
+    const PAD_L = 50, PAD_B = 40, PAD_T = 20, PAD_R = 90; // <- extra right room for labels
+
+    function mapRegY(v, H) {
+      const top = PAD_T, bottom = H - PAD_B;
+      return bottom - ((v + 50) / 100) * (bottom - top);
+    }
+
+    function mapClsY(v, H) {
+      const top = PAD_T, bottom = H - PAD_B;
+      return bottom - ((v + 1) / 2) * (bottom - top);
+    }
+
+    function drawAxes(ctx, W, H) {
+      ctx.clearRect(0, 0, W, H);
+
+      // Axes
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      // left y
+      ctx.beginPath(); ctx.moveTo(PAD_L, PAD_T); ctx.lineTo(PAD_L, H - PAD_B); ctx.stroke();
+      // right y (plot edge)
+      const rightX = W - PAD_R;
+      ctx.beginPath(); ctx.moveTo(rightX, PAD_T); ctx.lineTo(rightX, H - PAD_B); ctx.stroke();
+      // x
+      ctx.beginPath(); ctx.moveTo(PAD_L, H - PAD_B); ctx.lineTo(rightX, H - PAD_B); ctx.stroke();
+
+      // Left y ticks (regression, ticks)
+      ctx.fillStyle = '#e5e7eb'; ctx.font = '11px sans-serif';
+      [-50, -25, 0, 25, 50].forEach(t => {
+        const y = mapRegY(t, H);
+        ctx.beginPath(); ctx.moveTo(PAD_L - 5, y); ctx.lineTo(PAD_L, y); ctx.stroke();
+        ctx.fillText(String(t), PAD_L - 32, y + 3);
+      });
+      ctx.fillText('ticks', PAD_L - 32, PAD_T - 8);
+
+      // Right side labels OUTSIDE the right axis
+      const labelX = rightX + 10; // outside to the right
+      [{ v: -1, l: 'Down' }, { v: 0, l: 'Current' }, { v: 1, l: 'Up' }].forEach(({ v, l }) => {
+        const y = mapClsY(v, H);
+        ctx.beginPath(); ctx.moveTo(rightX, y); ctx.lineTo(rightX + 5, y); ctx.stroke();
+        ctx.fillText(l, labelX, y + 3);
+      });
+      ctx.fillText('classification', labelX, PAD_T - 8);
     }
     function genSignals(post){
       const regStd = post?25:8; const clsStd = post?0.9:0.4;
@@ -665,6 +694,7 @@
   </script>
 </body>
 </html>
+
 
 
 
