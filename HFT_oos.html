@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HIT–COVERAGE Frontier • Combined</title>
+
+  <!-- Fonts & libs -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+  <script>
+    (function () {
+      const p = window.ChartZoom || (window['chartjs-plugin-zoom'] && window['chartjs-plugin-zoom'].default);
+      if (p && window.Chart) { window.Chart.register(p); }
+      else { console.warn('chartjs-plugin-zoom not found/registered'); }
+    })();
+  </script>
+
+  <style>
+    :root { --bg:#0b0e14; --panel:#141824; --muted:#9aa3b2; --text:#e6e9ef; --accent:#60a5fa; }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{display:grid;grid-template-columns:340px 1fr;gap:20px;padding:20px}
+    .card{background:var(--panel);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:18px;overflow:hidden}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .grid-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .stack{display:grid;grid-template-columns:1fr;gap:12px}
+    label{font-size:12px;color:var(--muted)}
+    input[type="number"],select{background:#0f1320;border:1px solid #1e2435;color:var(--text);padding:8px 10px;border-radius:10px;font-size:13px;width:100%}
+    button{background:var(--accent);border:none;color:white;padding:10px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid #273049;color:var(--text)}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;background:#0f1320;border:1px solid #1e2435;color:#9aa3b2}
+    .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+    .kpi .item{background:#0f1320;border:1px solid #1e2435;border-radius:12px;padding:12px;text-align:center}
+    .kpi .big{font-size:16px;font-weight:700}
+    .hr{height:1px;background:#1e2435;margin:14px 0}
+    .note{font-size:12px;color:var(--muted)}
+    .hlist{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:180px;overflow:auto;padding:6px;background:#0f1320;border:1px solid #1e2435;border-radius:10px}
+    .hitem{display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1}
+    .hitem input{accent-color:#60a5fa}
+    .chart-wrap{position:relative;width:100%;height:420px;margin:12px 24px 12px 48px; padding-bottom:40px;overscroll-behavior:contain}
+    canvas{width:100% !important;height:100% !important; touch-action:none}
+    .axis-title{position:absolute;color:#cbd5e1;font-size:13px;font-weight:600;pointer-events:none;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+    .axis-title.x{bottom:28px;left:50%;transform:translateX(-50%)}
+    .axis-title.y{top:50%;left:-50px;transform:translateY(-50%) rotate(-90deg)}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+    .chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid #273049;background:#0f1320;color:#cbd5e1;font-size:12px}
+    .chip input{accent-color:#60a5fa}
+    .footer-wrap{display:flex;justify-content:center;margin-top:1px}
+    .footer{font-size:12px;color:#cbd5e1;text-align:center}
+    .summary-bar{display:flex;gap:10px;flex-wrap:wrap;background:#0f1320;border:1px solid #1e2435;color:#e6e9ef;border-radius:10px;padding:8px 10px;margin-bottom:8px}
+    .summary-bar .kv{display:flex;gap:6px;align-items:center;font-size:12px}
+    .euclid-pill{background:#f97316;color:#fff;border:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- Left panel -->
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:12px">
+        <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
+          <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo"
+               style="height:36px; width:auto; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.25)">
+        </a>
+        <h2 style="margin:0">Data &amp; Filters</h2>
+      </div>
+
+      <!-- Load from S3 -->
+      <div class="row" style="margin-bottom:8px; width:100%">
+        <!-- <button id="btnLoadCSVs">Load CSVs</button> -->
+      </div>
+
+      <div class="note" style="margin-top:2px">Files in view:</div>
+      <div id="fileChips" class="chips"><span class="pill">none</span></div>
+
+      <div class="grid-two" style="margin-top:10px">
+        <div>
+          <label>Min Hit</label>
+          <input id="minHit" type="number" min="0" max="1" step="0.01" value="0" />
+        </div>
+        <div>
+          <label>Min Coverage</label>
+          <input id="minCov" type="number" min="0" max="1" step="0.01" value="0" />
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="stack">
+        <div class="row">
+          <label class="hitem"><input id="showAgg" type="checkbox" checked /> Show Aggregate (frontier/calib + summary)</label>
+        </div>
+        <div class="row">
+          <label class="hitem"><input id="showPerH" type="checkbox" checked /> Show Per-Horizon Points</label>
+        </div>
+        <div>
+          <label>Horizon Filters (default: all on)</label>
+          <div id="horizonList" class="hlist"></div>
+        </div>
+      </div>
+      
+      <div class="hr"></div>
+      <div class="note" style="margin-top:8px; line-height:1.6">
+        <strong>Event Type:</strong><br/>
+        📊 <span class="pill">Unemployment Release</span> ⏰ <span class="pill">08:30 ET</span> 🪟 <span class="pill">POST10m</span>
+        <div style="margin-top:6px">
+          <strong>Current run:</strong> both <em>training</em> and <em>OOS evaluation</em> use the
+          <u>first 10 minutes after the release</u> (08:30–08:40 ET).<br/>
+          📂 Training is based on a <em>rolling 12-month LOB dataset</em> from CME 10 Yr Treasury futures.
+        </div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="note" style="margin-top:12px; line-height:1.6">
+        <strong>Dataset Types:</strong><br/>
+        📊 <span style="color:#93c5fd">Summary</span>: Out-of-sample performance at each horizon (reporting/validation).<br/>
+        🚀 <span style="color:#22d3ee">Frontier</span>: Pareto-optimal trade-offs of hit vs. coverage, auto-selected from calibration.<br/>
+        🔧 <span style="color:#fbbf24">Calib</span>: Raw calibration runs across thresholds (τ, q, etc.) before frontier filtering.
+      </div>
+
+      <div class="hr"></div>
+      <div class="note" style="margin-top:14px; line-height:1.6">
+        <strong>Zoom & Reset:</strong><br/>
+        🖱️ Works only while your cursor is over the chart.<br/>
+        🔍 Scroll to zoom in/out.<br/>
+        ♻️ Use “Reset Zoom” to return to full view.
+      </div>
+        
+    </div>
+
+    <!-- Chart panel -->
+    <div class="card" id="chartCard">
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <h2 id="chartTitle">HIT–COVERAGE Frontier (Combined)</h2>
+        <div class="row" style="gap:8px">
+          <span class="pill">x: Coverage</span>
+          <span class="pill">y: Hit</span>
+        </div>
+      </div>
+
+      <!-- Inline summary (auto-filled) -->
+      <!-- Inline summary (auto-filled, with actions on the right) -->
+      <div id="inlineSummary" class="summary-bar" style="display:none; justify-content:space-between; align-items:center">
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+          <span class="kv"><span class="pill">Pareto</span><strong id="sumPareto">–</strong></span>
+          <span class="kv"><span class="pill">Best Hit</span><strong id="sumBestHit">–</strong></span>
+          <span class="kv"><span class="pill">Best Cov</span><strong id="sumBestCov">–</strong></span>
+          <span class="kv"><span class="pill euclid-pill">Euclidean Best</span><strong id="sumEuclid">–</strong></span>
+        </div>
+        <div style="display:flex; gap:8px">
+          <button id="exportPNG" class="ghost">Export PNG</button>
+          <button id="resetZoom" class="ghost">Reset Zoom</button>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+        <div class="axis-title x">Coverage</div>
+        <div class="axis-title y">Hit</div>
+      </div>
+
+      <div class="kpi" id="kpis" style="display:none"></div>
+      <div class="hr"></div>
+      <div class="note">
+        <div><strong>Legend:</strong> <span class="pill" style="border-color:#22d3ee;color:#22d3ee">Cyan squares</span> = Pareto • <span class="pill" style="border-color:#06b6d4;color:#06b6d4">Cyan line</span> = frontier • <span class="pill" style="border-color:#f97316;color:#f97316">Orange star</span> = closest to (1,1)</div>
+        <div style="margin-top:6px">
+          <strong>Definitions:</strong>
+          <em>Hit</em> = share of selected trades with correct direction (on events with |Δprice| ≥ τ).
+          <em>Coverage</em> = share of events with |Δprice| ≥ τ (τ comes from your config/calibration or the selected τ in the frontier rows).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-wrap">
+    <div class="footer">
+      © Copyright 2025 Quantum Yield. All rights reserved by Advanced Financial Engineering, LLC.
+    </div>
+  </div>
+
+  <script>
+  const dom = id => document.getElementById(id);
+
+  // Hard-coded public S3 URLs
+  const S3_URLS = {
+    summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary.csv",
+    frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier.csv",
+    calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib.csv"
+  };
+
+  const EXPECTED_ROLES = ["summary","frontier","calib"];
+  const state = { files: [] }; // fileObj = { name, selected, aggPts[], hmap(Map<h,pts[]>), horizons:Set<string> }
+  let chart;
+
+  function resetAll(){
+    state.files = [];
+    dom('horizonList').innerHTML = '';
+    renderFileChips();
+    updateTitle();
+    if(chart){ chart.destroy(); chart = null; }
+    dom('kpis').style.display = 'none';
+    dom('kpis').innerHTML = '';
+    dom('inlineSummary').style.display = 'none';
+    dom('sumPareto').textContent = '–';
+    dom('sumBestHit').textContent = '–';
+    dom('sumBestCov').textContent = '–';
+    dom('sumEuclid').textContent = '–';
+  }
+
+  function updateTitle(){
+    const t = dom('chartTitle');
+    const selected = state.files.filter(f=>f.selected);
+    if(selected.length === 1){
+      t.textContent = 'HIT–COVERAGE Frontier (' + selected[0].name + ')';
+    } else if(selected.length > 1){
+      t.textContent = 'HIT–COVERAGE Frontier (multiple files)';
+    } else {
+      t.textContent = 'HIT–COVERAGE Frontier (Combined)';
+    }
+  }
+
+  function renderFileChips(){
+    const wrap = dom('fileChips');
+    if(!state.files.length){ wrap.innerHTML = '<span class="pill">none</span>'; return; }
+    wrap.innerHTML = state.files.map((f,i)=>`
+      <label class="chip" title="${f.name}">
+        <input type="checkbox" data-idx="${i}" ${f.selected?'checked':''} />
+        ${f.name}
+      </label>
+    `).join('');
+    wrap.querySelectorAll('input[type="checkbox"]').forEach(chk=>{
+      chk.addEventListener('change', (e)=>{
+        const idx = +e.target.getAttribute('data-idx');
+        state.files[idx].selected = e.target.checked;
+        rebuildHorizonList();
+        updateTitle();
+        renderCombined();
+      });
+    });
+  }
+
+  function autoDetectType(cols){
+    const hasSummaryCols = cols.some(c => c.startsWith('HSEL_HIT_THR_'));
+    if (hasSummaryCols) return 'summary';
+    if (cols.includes('hit') && cols.includes('cov')) return (cols.includes('mode') ? 'frontier' : 'calib');
+    return 'unknown';
+  }
+  function paretoFront(points){
+    if(!points.length) return [];
+    const sorted=[...points].sort((a,b)=>b.x===a.x?b.y-a.y:b.x-a.x);
+    const out=[]; let bestY=-Infinity, tol=1e-12;
+    for(const p of sorted){ if(p.y>=bestY-tol){ out.push(p); bestY=Math.max(bestY,p.y); } }
+    out.sort((a,b)=>a.x===b.x?a.y-b.y:a.x-b.x);
+    return out;
+  }
+  function euclidBest(frontier){
+    if(!frontier.length) return null;
+    let best=null, d=Infinity;
+    for(const p of frontier){ const dd=Math.hypot(1-p.x, 1-p.y); if(dd<d){ d=dd; best=p; } }
+    return best;
+  }
+  function filterBasic(points){
+    const minHit=parseFloat(dom('minHit').value||'0');
+    const minCov=parseFloat(dom('minCov').value||'0');
+    return points.filter(p => (p.y>=minHit && p.x>=minCov));
+  }
+
+  function parseFrontierLike(rows){
+    if(!rows.length) return { aggPts: [], hmap: new Map(), horizons: [] };
+    const cols = Object.keys(rows[0] || {});
+    const aggPts = [];
+    const hmap = new Map();
+    const horizons = new Set();
+
+    function pushPerH(h, cov, hit, metaBase){
+      if(!Number.isFinite(cov) || !Number.isFinite(hit)) return;
+      const hh = `${h}ms`;
+      const meta = { ...metaBase, horizon: hh };
+      const pt = { x: cov, y: hit, label: `h=${hh} • q=${meta.q}, tau=${meta.tau}` + (Number.isFinite(meta.util)? ` • util=${meta.util.toFixed(3)}` : ''), meta };
+      if(!hmap.has(hh)) hmap.set(hh, []);
+      hmap.get(hh).push(pt);
+      horizons.add(hh);
+    }
+
+    const hitHCols = cols.filter(c => /^hit_\d+ms$/i.test(c));
+    const hNums = [...new Set(hitHCols.map(c => c.match(/^hit_(\d+)ms$/i)[1]))]
+      .sort((a,b)=>parseInt(a)-parseInt(b));
+
+    for(const r of rows){
+      const x = +r.cov, y = +r.hit;
+      if(Number.isFinite(x) && Number.isFinite(y)){
+        const q = (r.q ?? r.quantile);
+        const tau = r.tau;
+        const util = (r.util !== undefined ? +r.util : NaN);
+        aggPts.push({
+          x, y,
+          label: `q=${q}, tau=${tau}${Number.isFinite(util)?`, util=${util.toFixed(3)}`:''}`,
+          meta: { q, tau, util, mode: r.mode, robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined) }
+        });
+      }
+
+      const metaBase = {
+        q: (r.q ?? r.quantile),
+        tau: r.tau,
+        util: (r.util !== undefined ? +r.util : NaN),
+        mode: r.mode,
+        robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined)
+      };
+      for(const h of hNums){
+        const hit = +r[`hit_${h}ms`];
+        const cov = +r[`cov_${h}ms`];
+        pushPerH(h, cov, hit, metaBase);
+      }
+    }
+    return { aggPts, hmap, horizons: [...horizons] };
+  }
+
+  function parseSummary(rows){
+    const cols = Object.keys(rows[0] || {});
+    const hitCols = cols.filter(c => c.startsWith('HSEL_HIT_THR_'));
+    const horizons = hitCols.map(h => h.replace('HSEL_HIT_THR_',''));
+    const covCol = (h) => 'HSEL_COVERAGE_' + h;
+
+    const aggFromSummary = [];
+    const hmap = new Map();
+
+    const runTagKeys = ['date','model_tag','note','CONF_Q','DIR_THR_BPS','thr_bps'];
+    const hasRunTag = (r,k) => Object.prototype.hasOwnProperty.call(r,k);
+
+    for(const r of rows){
+      for(const h of horizons){
+        const hit = +r[`HSEL_HIT_THR_${h}`];
+        const cov = +r[covCol(h)];
+        if(!Number.isFinite(hit)||!Number.isFinite(cov)) continue;
+
+        const meta = {horizon:h};
+        for(const k of runTagKeys) if(hasRunTag(r,k)) meta[k]=r[k];
+
+        const pt = { x: cov, y: hit, label: `summary • ${h}${meta.thr_bps?` | thr=${meta.thr_bps}`:''}`, meta };
+
+        if(!hmap.has(h)) hmap.set(h, []);
+        hmap.get(h).push(pt);
+
+        aggFromSummary.push({ ...pt, label: pt.label });
+      }
+    }
+    return { horizons: [...new Set(horizons)], aggFromSummary, hmap };
+  }
+
+  function selectedFiles(){ return state.files.filter(f=>f.selected); }
+
+  function rebuildHorizonList(){
+    const box = dom('horizonList');
+    const hset = new Set();
+    selectedFiles().forEach(f => f.horizons.forEach(h => hset.add(h)));
+    const hs = Array.from(hset).sort((a,b)=>+a.replace('ms','') - +b.replace('ms',''));
+    box.innerHTML = hs.map(h=>`
+      <label class="hitem">
+        <input type="checkbox" class="hchk" value="${h}" checked />
+        ${h}
+      </label>`).join('');
+    box.querySelectorAll('.hchk').forEach(el => el.addEventListener('change', renderCombined));
+    applyPerHEnabled(dom('showPerH').checked);
+  }
+  function selectedHorizons(){
+    const els = dom('horizonList').querySelectorAll('.hchk');
+    const on = []; els.forEach(e=>{ if(e.checked) on.push(e.value); });
+    return new Set(on);
+  }
+  function applyPerHEnabled(enabled){
+    const chks = dom('horizonList').querySelectorAll('.hchk');
+    chks.forEach(c => { c.disabled = !enabled; if(enabled){ c.checked = true; } else { c.checked = false; } });
+  }
+
+  function setZoomEnabled(ch, on){
+    const z = ch.options.plugins.zoom;
+    if(!z) return;
+    z.pan.enabled = !!on;
+    z.zoom.wheel.enabled = !!on;
+    z.zoom.pinch.enabled = !!on;
+    ch.update('none');
+  }
+
+  function baseChartOptions(){
+    return {
+      responsive:true, maintainAspectRatio:false, parsing:{xAxisKey:'x', yAxisKey:'y'}, animation:false,
+      layout:{padding:{left:8,right:46,top:8,bottom:28}},
+      scales:{
+        x:{min:0,max:1,grid:{color:'#273049'},ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}},
+        y:{min:0,max:1,grid:{color:'#273049'},ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}}
+      },
+      plugins:{
+        legend:{labels:{color:'#e2e8f0',font:{size:12}}},
+        tooltip:{callbacks:{
+          title:items=>items?.[0]?.raw?.label||'Point',
+          label:ctx=>{
+            const m=(ctx.raw&&ctx.raw.meta)||{}; const lines=[];
+            lines.push(`Coverage: ${(ctx.parsed.x*100).toFixed(2)}%`);
+            lines.push(`Hit: ${(ctx.parsed.y*100).toFixed(2)}%`);
+            if(m.horizon) lines.push(`Horizon: ${m.horizon}`);
+            if(m.q!==undefined) lines.push(`q: ${m.q}`);
+            if(m.tau!==undefined) lines.push(`tau: ${m.tau}`);
+            if(typeof m.util==='number'&&!isNaN(m.util)) lines.push(`util: ${m.util.toFixed(3)}`);
+            if(m.date) lines.push(`date: ${m.date}`);
+            if(m.model_tag) lines.push(`model: ${m.model_tag}`);
+            return lines;
+          }
+        }},
+        zoom:{
+          limits:{ x:{min:0, max:1}, y:{min:0, max:1} },
+          pan:{ enabled:false, mode:'xy' },
+          zoom:{
+            wheel:{ enabled:false, speed:0.1 },
+            pinch:{ enabled:false },
+            mode:'xy'
+          }
+        }
+      }
+    };
+  }
+
+  function updateInlineSummary(frontierPoints, allPoints){
+    if(!allPoints || !allPoints.length){ dom('inlineSummary').style.display='none'; return; }
+    const paretoCount = frontierPoints.length;
+    const bestHit = allPoints.reduce((m,p)=>Math.max(m,p.y), 0);
+    const bestCov = allPoints.reduce((m,p)=>Math.max(m,p.x), 0);
+    const best = euclidBest(frontierPoints);
+
+    dom('sumPareto').textContent = String(paretoCount || 0);
+    dom('sumBestHit').textContent = (bestHit*100).toFixed(1) + '%';
+    dom('sumBestCov').textContent = (bestCov*100).toFixed(1) + '%';
+    dom('sumEuclid').textContent = best ? `(Hit ${(best.y*100).toFixed(1)}%, Cov ${(best.x*100).toFixed(1)}%)` : '–';
+    dom('inlineSummary').style.display = 'flex';
+  }
+
+  function renderCombined(){
+    const keepAgg  = dom('showAgg').checked;
+    const keepPerH = dom('showPerH').checked;
+    const hSel = selectedHorizons();
+
+    let pts = [];
+    for(const f of selectedFiles()){
+      if(keepAgg) pts.push(...f.aggPts);
+      if(keepPerH){
+        for(const [h, arr] of f.hmap.entries()){
+          if(hSel.has(h)) pts.push(...arr);
+        }
+      }
+    }
+
+    const filtered = filterBasic(pts);
+    const frontier = paretoFront(filtered);
+    const best = euclidBest(frontier);
+
+    const datasets = [
+      {type:'scatter', label:'Points',
+       data:filtered.map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
+       pointRadius:7, pointHoverRadius:9,
+       pointBackgroundColor:'#e5e7eb', pointBorderColor:'#0f172a', pointBorderWidth:1.5},
+      {type:'scatter', label:'Pareto Points',
+       data:frontier.map(p=>({x:p.x,y:p.y,label:`Pareto • ${p.label||''}`,meta:p.meta})),
+       pointRadius:9, pointHoverRadius:11, pointStyle:'rectRounded',
+       pointBackgroundColor:'#22d3ee', pointBorderColor:'#022c3a', pointBorderWidth:2},
+      {type:'line', label:'Pareto Frontier',
+       data:frontier.map(p=>({x:p.x,y:p.y})),
+       borderColor:'#06b6d4', borderWidth:4, pointRadius:0, tension:0.15, spanGaps:true}
+    ];
+    if(best){
+      datasets.push({type:'scatter', label:'Euclidean Best',
+        data:[{x:best.x,y:best.y,label:`Closest to (1,1) • ${best.label||''}`,meta:best.meta}],
+        pointRadius:10, pointHoverRadius:12, pointStyle:'star',
+        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2});
+      datasets.push({type:'line', label:'Line to Utopia',
+        data:[{x:best.x,y:best.y},{x:1,y:1}], borderColor:'#f97316', borderWidth:2, borderDash:[6,6], pointRadius:0});
+      datasets.push({type:'scatter', label:'Utopia (1,1)',
+        data:[{x:1,y:1}], pointRadius:6, pointStyle:'triangle',
+        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2});
+    }
+
+    const canvas = dom('chart');
+    const ctx = canvas.getContext('2d');
+    if(chart) chart.destroy();
+    chart = new Chart(ctx, { data:{datasets}, options: baseChartOptions() });
+
+    // enable zoom only on hover
+    canvas.addEventListener('mouseenter', ()=> setZoomEnabled(chart, true));
+    canvas.addEventListener('mouseleave', ()=> setZoomEnabled(chart, false));
+    canvas.addEventListener('touchstart', ()=> setZoomEnabled(chart, true), {passive:true});
+    canvas.addEventListener('touchend',   ()=> setZoomEnabled(chart, false));
+    canvas.addEventListener('touchcancel',()=> setZoomEnabled(chart, false));
+
+    // KPIs
+    const k = dom('kpis');
+    if(filtered.length){
+      const maxHit=filtered.reduce((m,p)=>Math.max(m,p.y),0);
+      const maxCov=filtered.reduce((m,p)=>Math.max(m,p.x),0);
+      const sweet=filtered.filter(p=>p.y>=0.91&&p.x>=0.5).length;
+      k.style.display='grid';
+      k.innerHTML=`
+        <div class="item"><div class="big">${filtered.length}</div><div class="pill">Points</div></div>
+        <div class="item"><div class="big">${(maxHit*100).toFixed(1)}%</div><div class="pill">Best Hit</div></div>
+        <div class="item"><div class="big">${(maxCov*100).toFixed(1)}%</div><div class="pill">Best Coverage</div></div>
+        <div class="item"><div class="big">${sweet}</div><div class="pill">Sweet Zone (≥91% hit & ≥50% cov)</div></div>`;
+    } else { k.style.display='none'; k.innerHTML=''; }
+
+    updateInlineSummary(frontier, filtered);
+  }
+
+  function handleRows(rows, filename){
+    if(!rows.length){ console.warn('No rows parsed for', filename); return; }
+    const cols = Object.keys(rows[0] || {});
+    const kind = autoDetectType(cols);
+
+    let fileObj = { name: filename, selected: true, aggPts: [], hmap: new Map(), horizons: new Set() };
+
+    if(kind==='summary'){
+      const { horizons, aggFromSummary, hmap } = parseSummary(rows);
+      fileObj.aggPts = aggFromSummary;
+      fileObj.hmap = hmap;
+      fileObj.horizons = new Set(horizons);
+    }
+    else if(kind==='frontier' || kind==='calib'){
+      const { aggPts, hmap, horizons } = parseFrontierLike(rows);
+      fileObj.aggPts = aggPts;
+      fileObj.hmap = hmap;
+      fileObj.horizons = new Set(horizons);
+    }
+    else { console.warn('Unknown dataset type for', filename); return; }
+
+    state.files.push(fileObj);
+    renderFileChips();
+    updateTitle();
+    rebuildHorizonList();
+    renderCombined();
+  }
+
+  function addChipBadge(text, border="#7f1d1d", color="#fecaca") {
+    const wrap = document.getElementById("fileChips");
+    wrap.insertAdjacentHTML("beforeend",
+      `<span class="pill" style="border-color:${border};color:${color}">${text}</span>`);
+  }
+
+  // ---- NEW: Load from hard-coded S3 URLs ----
+  async function loadFromS3(){
+  resetAll();
+  dom("fileChips").innerHTML = EXPECTED_ROLES
+    .map(r => `<span class="pill">${r}.csv</span>`).join(" ");
+
+  for (const role of EXPECTED_ROLES){
+    const url = S3_URLS[role];
+    if(!url){ addChipBadge(`missing: ${role}`, "#7f1d1d", "#fecaca"); continue; }
+
+    try {
+      // 1) Fetch to surface HTTP/CORS issues
+      const res = await fetch(url, { method: "GET", mode: "cors" });
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      const csvText = await res.text();
+
+      // 2) Parse CSV text (no network inside Papa)
+      const parsed = Papa.parse(csvText, {
+        header: true, dynamicTyping: true, skipEmptyLines: true
+      });
+      if (parsed.errors?.length) {
+        console.warn(`${role} parse warnings:`, parsed.errors.slice(0,3));
+      }
+
+      handleRows(parsed.data || [], `${role}.csv`);
+    } catch (err) {
+      console.error(`Load failed for ${role}:`, err);
+      addChipBadge(`failed: ${role} (${err.message || 'CORS?'})`);
+    }
+  }
+}
+
+  // ---------- live controls ----------
+  const refilter = ()=>renderCombined();
+  dom('minHit').addEventListener('input', refilter);
+  dom('minCov').addEventListener('input', refilter);
+  dom('showAgg').addEventListener('change', refilter);
+  dom('showPerH').addEventListener('change', (e)=>{
+    applyPerHEnabled(e.target.checked);
+    refilter();
+  });
+  dom('exportPNG').addEventListener('click',()=>{
+    if(!chart) return;
+    const a=document.createElement('a'); a.href=chart.toBase64Image('image/png',1);
+    a.download='frontier_combined.png'; a.click();
+  });
+  dom('resetZoom').addEventListener('click',()=>{ if(chart && chart.resetZoom) chart.resetZoom(); });
+
+  // Button -> load hard-coded URLs
+  // dom('btnLoadCSVs').addEventListener('click', loadFromS3);
+
+  // Auto-load on page ready (optional)
+  document.addEventListener('DOMContentLoaded', loadFromS3);
+</script>
+</body>
+</html>
