@@ -68,9 +68,13 @@
         <h2 style="margin:0">Data &amp; Filters</h2>
       </div>
 
-      <!-- Load from S3 -->
+      <!-- Dataset switch -->
       <div class="row" style="margin-bottom:8px; width:100%">
-        <!-- <button id="btnLoadCSVs">Load CSVs</button> -->
+        <label for="instrumentSelect">Dataset</label>
+        <select id="instrumentSelect">
+          <option value="ZN">ZN – 10Yr Treasury</option>
+          <option value="ES">ES – S&amp;P 500 Futures</option>
+        </select>
       </div>
 
       <div class="note" style="margin-top:2px">Files in view:</div>
@@ -108,7 +112,8 @@
         <div style="margin-top:6px">
           <strong>Current run:</strong> both <em>training</em> and <em>OOS evaluation</em> use the
           <u>first 10 minutes after the release</u> (08:30–08:40 ET).<br/>
-          📂 Training is based on a <em>rolling 12-month LOB dataset</em> from CME 10 Yr Treasury futures.
+          📂 Training is based on a <em>rolling 12-month LOB dataset</em> from CME 
+          <span id="trainingLabel">10 Yr Treasury</span> futures.
         </div>
       </div>
 
@@ -140,8 +145,7 @@
         </div>
       </div>
 
-      <!-- Inline summary (auto-filled) -->
-      <!-- Inline summary (auto-filled, with actions on the right) -->
+      <!-- Inline summary -->
       <div id="inlineSummary" class="summary-bar" style="display:none; justify-content:space-between; align-items:center">
         <div style="display:flex; gap:10px; flex-wrap:wrap">
           <span class="kv"><span class="pill">Pareto</span><strong id="sumPareto">–</strong></span>
@@ -183,16 +187,24 @@
   <script>
   const dom = id => document.getElementById(id);
 
-  // Hard-coded public S3 URLs
-  const S3_URLS = {
-    summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary.csv",
-    frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier.csv",
-    calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib.csv"
+  // ---- Grouped S3 URLs for each instrument (exact URLs you provided) ----
+  const S3_SETS = {
+    ZN: {
+      summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary.csv",
+      frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier.csv",
+      calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib.csv"
+    },
+    ES: {
+      summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary_ES202509.csv",
+      frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier_ES202509.csv",
+      calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib_ES202509.csv"
+    }
   };
 
   const EXPECTED_ROLES = ["summary","frontier","calib"];
   const state = { files: [] }; // fileObj = { name, selected, aggPts[], hmap(Map<h,pts[]>), horizons:Set<string> }
   let chart;
+  let currentInstrument = 'ZN';
 
   function resetAll(){
     state.files = [];
@@ -292,7 +304,7 @@
       const x = +r.cov, y = +r.hit;
       if(Number.isFinite(x) && Number.isFinite(y)){
         const q = (r.q ?? r.quantile);
-        const tau = r.tau;
+        theTau = r.tau; const tau = theTau; // keep name stable
         const util = (r.util !== undefined ? +r.util : NaN);
         aggPts.push({
           x, y,
@@ -542,37 +554,40 @@
       `<span class="pill" style="border-color:${border};color:${color}">${text}</span>`);
   }
 
-  // ---- NEW: Load from hard-coded S3 URLs ----
-  async function loadFromS3(){
-  resetAll();
-  dom("fileChips").innerHTML = EXPECTED_ROLES
-    .map(r => `<span class="pill">${r}.csv</span>`).join(" ");
+  // Load one instrument's 3 CSVs, prefixing names in the chip list
+  async function loadFromS3Set(urlSet, prefix='ZN'){
+    resetAll();
+    dom("fileChips").innerHTML = EXPECTED_ROLES
+      .map(r => `<span class="pill">${prefix}-${r}.csv</span>`).join(" ");
 
-  for (const role of EXPECTED_ROLES){
-    const url = S3_URLS[role];
-    if(!url){ addChipBadge(`missing: ${role}`, "#7f1d1d", "#fecaca"); continue; }
+    for (const role of EXPECTED_ROLES){
+      const url = urlSet[role];
+      if(!url){ addChipBadge(`${prefix}-${role} missing`, "#7f1d1d", "#fecaca"); continue; }
 
-    try {
-      // 1) Fetch to surface HTTP/CORS issues
-      const res = await fetch(url, { method: "GET", mode: "cors" });
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      const csvText = await res.text();
+      try {
+        const res = await fetch(url, { method: "GET", mode: "cors" });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const csvText = await res.text();
 
-      // 2) Parse CSV text (no network inside Papa)
-      const parsed = Papa.parse(csvText, {
-        header: true, dynamicTyping: true, skipEmptyLines: true
-      });
-      if (parsed.errors?.length) {
-        console.warn(`${role} parse warnings:`, parsed.errors.slice(0,3));
+        const parsed = Papa.parse(csvText, {
+          header: true, dynamicTyping: true, skipEmptyLines: true
+        });
+        if (parsed.errors?.length) {
+          console.warn(`${prefix}-${role} parse warnings:`, parsed.errors.slice(0,3));
+        }
+
+        handleRows(parsed.data || [], `${prefix}-${role}.csv`);
+      } catch (err) {
+        console.error(`Load failed for ${prefix}-${role}:`, err);
+        addChipBadge(`failed: ${prefix}-${role} (${err.message || 'CORS?'})`);
       }
-
-      handleRows(parsed.data || [], `${role}.csv`);
-    } catch (err) {
-      console.error(`Load failed for ${role}:`, err);
-      addChipBadge(`failed: ${role} (${err.message || 'CORS?'})`);
     }
   }
-}
+
+  function updateTrainingLabel(){
+    const label = dom('trainingLabel');
+    label.textContent = (currentInstrument === 'ES') ? 'E-mini S&P 500' : '10 Yr Treasury';
+  }
 
   // ---------- live controls ----------
   const refilter = ()=>renderCombined();
@@ -586,15 +601,22 @@
   dom('exportPNG').addEventListener('click',()=>{
     if(!chart) return;
     const a=document.createElement('a'); a.href=chart.toBase64Image('image/png',1);
-    a.download='frontier_combined.png'; a.click();
+    a.download=`frontier_${currentInstrument}.png`; a.click();
   });
   dom('resetZoom').addEventListener('click',()=>{ if(chart && chart.resetZoom) chart.resetZoom(); });
 
-  // Button -> load hard-coded URLs
-  // dom('btnLoadCSVs').addEventListener('click', loadFromS3);
+  // Switch between ZN and ES
+  dom('instrumentSelect').addEventListener('change', (e)=>{
+    currentInstrument = e.target.value;
+    loadFromS3Set(S3_SETS[currentInstrument], currentInstrument);
+    updateTrainingLabel();
+  });
 
-  // Auto-load on page ready (optional)
-  document.addEventListener('DOMContentLoaded', loadFromS3);
-</script>
+  // Initial load (ZN by default)
+  document.addEventListener('DOMContentLoaded', ()=>{
+    loadFromS3Set(S3_SETS.ZN, 'ZN');
+    updateTrainingLabel();
+  });
+  </script>
 </body>
 </html>
