@@ -224,12 +224,13 @@
   function updateTitle(){
     const t = dom('chartTitle');
     const selected = state.files.filter(f=>f.selected);
+    const sym = currentInstrument || 'ZN';           // show selected symbol in title
     if(selected.length === 1){
-      t.textContent = 'HIT–COVERAGE Frontier (' + selected[0].name + ')';
+      t.textContent = `HIT–COVERAGE Frontier • ${sym} (${selected[0].name})`;
     } else if(selected.length > 1){
-      t.textContent = 'HIT–COVERAGE Frontier (multiple files)';
+      t.textContent = `HIT–COVERAGE Frontier • ${sym} (multiple files)`;
     } else {
-      t.textContent = 'HIT–COVERAGE Frontier (Combined)';
+      t.textContent = `HIT–COVERAGE Frontier • ${sym}`;
     }
   }
 
@@ -617,6 +618,16 @@
     loadFromS3Set(S3_SETS.ZN, 'ZN');
     updateTrainingLabel();
   });
+
+  // Switch listener for instrument dropdown
+  dom('symbolSelect').addEventListener('change', async (e) => {
+    const selected = e.target.value;
+    currentInstrument = selected;
+    await loadFromS3Set(S3_SETS[selected], selected);
+    updateTrainingLabel();
+    updateTitle();  // ✅ Refresh the chart title dynamically
+  });
+
   </script>
 </body>
 </html>
