@@ -342,8 +342,8 @@
     return undefined;
   }
 
-  // parseFrontierLike now tags source and returns recoPts
-  function parseFrontierLike(rows, sourceTag = 'frontier'){
+  // --- UPDATED: frontier/calib parser with per-h regression only
+  function parseFrontierLike(rows){
     if(!rows.length) return { aggPts: [], hmap: new Map(), horizons: [], recoPts: [] };
 
     const cols = Object.keys(rows[0] || {});
@@ -354,32 +354,37 @@
     const horizons = new Set();
     let inReco = false;
 
+    // detect available horizons from per-h hit columns
     const hitHCols = cols.filter(c => /^hit_\d+ms$/i.test(c));
     const hNums = [...new Set(hitHCols.map(c => c.match(/^hit_(\d+)ms$/i)[1]))]
       .sort((a,b)=>parseInt(a)-parseInt(b));
 
-    function pickFirstNum(row, keys) {
-      for (const k of keys) if (k in row && Number.isFinite(+row[k])) return +row[k];
-      return undefined;
-    }
-
     function pushPerH(h, cov, hit, metaBase, row, isReco){
       if(!Number.isFinite(cov) || !Number.isFinite(hit)) return;
       const hh = `${h}ms`;
+
+      // STRICT: use only per-h metrics if present; no row-level fallback
       const mae_h = pickFirstNum(row, [`mae_${h}ms`,`MAE_${h}ms`,`mae_${h}`,`MAE_${h}`]);
       const mse_h = pickFirstNum(row, [`mse_${h}ms`,`MSE_${h}ms`,`mse_${h}`,`MSE_${h}`]);
-      const r2_h  = pickFirstNum(row,  [`r2_${h}ms`, `R2_${h}ms`, `r2_${h}`, `R2_${h}`]);
+      const r2_h  = pickFirstNum(row, [`r2_${h}ms`, `R2_${h}ms`, `r2_${h}`, `R2_${h}`]);
 
       const meta = {
         ...metaBase,
         horizon: hh,
-        mae: (mae_h !== undefined) ? mae_h : pickFirstNum(row, ['mae','MAE']),
-        mse: (mse_h !== undefined) ? mse_h : pickFirstNum(row, ['mse','MSE']),
-        r2 : (r2_h  !== undefined) ? r2_h  : pickFirstNum(row, ['r2','R2']),
-        reco: isReco,
-        source: sourceTag
+        // attach only if present; undefined otherwise
+        ...(mae_h !== undefined ? { mae: mae_h } : {}),
+        ...(mse_h !== undefined ? { mse: mse_h } : {}),
+        ...(r2_h  !== undefined ? { r2 : r2_h }  : {}),
+        reco: isReco
       };
-      const pt = { x: cov, y: hit, label: `${isReco?'RECO • ':''}h=${hh}`, meta };
+
+      const labelBits = [`h=${hh}`];
+      if (meta.q !== undefined)   labelBits.push(`q=${meta.q}`);
+      if (meta.tau !== undefined) labelBits.push(`tau=${meta.tau}`);
+      if (Number.isFinite(meta.util)) labelBits.push(`util=${meta.util.toFixed(3)}`);
+      if (isReco) labelBits.unshift('RECO');
+
+      const pt = { x: cov, y: hit, label: labelBits.join(' • '), meta };
       if(!hmap.has(hh)) hmap.set(hh, []);
       hmap.get(hh).push(pt);
       horizons.add(hh);
@@ -388,21 +393,19 @@
     for(const r of rows){
       if (firstCol && r[firstCol] === 'RECOMMENDATIONS_TOPK') { inReco = true; continue; }
 
+      // aggregate point (classification-only metadata)
       const x = +r.cov, y = +r.hit;
       if(Number.isFinite(x) && Number.isFinite(y)){
-        const q = (r.q ?? r.quantile);
+        const q   = (r.q ?? r.quantile);
         const tau = r.tau;
         const util = (r.util !== undefined ? +r.util : NaN);
-        const metaAgg = {
-          q, tau, util, mode: r.mode,
-          robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined),
-          mae: pickFirstNum(r, ['mae','MAE']),
-          mse: pickFirstNum(r, ['mse','MSE']),
-          r2 : pickFirstNum(r, ['r2','R2']),
-          reco: inReco,
-          source: sourceTag
+        const metaAgg = { q, tau, util, mode: r.mode, robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined) };
+
+        const obj = {
+          x, y,
+          label: (inReco ? 'RECO • ' : '') + `q=${q}, tau=${tau}${Number.isFinite(util)?`, util=${util.toFixed(3)}`:''}`,
+          meta: metaAgg
         };
-        const obj = { x, y, label: (inReco?'RECO • ':'') + `q=${q}, tau=${tau}${Number.isFinite(util)?`, util=${util.toFixed(3)}`:''}`, meta: metaAgg };
         (inReco ? recoPts : aggPts).push(obj);
       }
 
@@ -555,14 +558,19 @@
               return lines;
             }
 
-            // Regression tooltip
-            const mae = m.mae ?? m.MAE ?? m.MaE;
-            const mse = m.mse ?? m.MSE ?? m.MsE;
-            const r2  = m.r2  ?? m.R2  ?? m.Rsq;
-            if (typeof mae === 'number') lines.push(`MAE: ${mae.toFixed(4)}`);
-            if (typeof mse === 'number') lines.push(`MSE: ${mse.toFixed(4)}`);
-            if (typeof r2  === 'number') lines.push(`R²: ${r2.toFixed(4)}`);
-            if (lines.length === 0) lines.push('Regression metrics unavailable');
+            // Regression view: show only sane per-h metrics
+            const mae = (typeof m.mae === 'number' ? m.mae : undefined);
+            const mse = (typeof m.mse === 'number' ? m.mse : undefined);
+            const r2  = (typeof m.r2  === 'number' ? m.r2  : undefined);
+
+            const sane = (v)=> Number.isFinite(v) && Math.abs(v) < 1e3; // guard against huge, wrong-scale numbers
+            if (sane(mae) && sane(mse) && Number.isFinite(r2)) {
+              lines.push(`MAE: ${mae.toFixed(4)}`);
+              lines.push(`MSE: ${mse.toFixed(4)}`);
+              lines.push(`R²: ${r2.toFixed(4)}`);
+            } else {
+              lines.push('Regression metrics unavailable');
+            }
             if (m.horizon) lines.push(`Horizon: ${m.horizon}`);
             if (m.q !== undefined) lines.push(`q: ${m.q}`);
             if (m.tau !== undefined) lines.push(`tau: ${m.tau}`);
