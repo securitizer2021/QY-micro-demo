@@ -659,27 +659,32 @@
     }
 
     // --- Pareto frontier (points + line)
-    if (frontier.length >= 1) {
-      // Remove duplicates and ensure sorted X order
+    if (frontier && frontier.length > 0) {
       const uniq = [];
       const seen = new Set();
+
       for (const p of frontier) {
         const key = `${p.x.toFixed(6)}_${p.y.toFixed(6)}`;
-        if (!seen.has(key)) { uniq.push({ x: p.x, y: p.y }); seen.add(key); }
+        if (!seen.has(key)) {
+          uniq.push({ x: p.x, y: p.y });
+          seen.add(key);
+        }
       }
-      uniq.sort((a,b) => a.x - b.x);
 
-      // If only 1 Pareto point, duplicate slightly so Chart.js renders a segment
+      uniq.sort((a, b) => a.x - b.x);
+
+      // If only one Pareto point, duplicate slightly for rendering
       if (uniq.length === 1) {
         uniq.push({ x: uniq[0].x + 1e-6, y: uniq[0].y });
       }
 
+      // Draw line if there's at least one point
       datasets.push({
         type: 'line',
         label: 'Pareto Frontier',
         data: uniq,
-        parsing: false,                  // use x/y directly
-        order: 99,                       // draw on top
+        parsing: false,
+        order: 99,
         borderColor: '#06b6d4',
         borderWidth: 3,
         tension: 0.25,
