@@ -30,6 +30,7 @@
     .stack{display:grid;grid-template-columns:1fr;gap:12px}
     label{font-size:12px;color:var(--muted)}
     input[type="number"],select{background:#0f1320;border:1px solid #1e2435;color:var(--text);padding:8px 10px;border-radius:10px;font-size:13px;width:100%}
+    input[type="file"]{font-size:12px;color:#cbd5e1}
     button{background:var(--accent);border:none;color:white;padding:10px 12px;border-radius:10px;font-weight:600;cursor:pointer}
     button.ghost{background:transparent;border:1px solid #273049;color:var(--text)}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;background:#0f1320;border:1px solid #1e2435;color:#9aa3b2}
@@ -54,6 +55,7 @@
     .summary-bar{display:flex;gap:10px;flex-wrap:wrap;background:#0f1320;border:1px solid #1e2435;color:#e6e9ef;border-radius:10px;padding:8px 10px;margin-bottom:8px}
     .summary-bar .kv{display:flex;gap:6px;align-items:center;font-size:12px}
     .euclid-pill{background:#f97316;color:#fff;border:none}
+    @media (max-width: 1000px){ .wrap{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
@@ -98,6 +100,12 @@
         </div>
         <div class="row">
           <label class="hitem"><input id="showPerH" type="checkbox" checked /> Show Per-Horizon Points</label>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <label class="hitem"><input type="radio" name="viewMode" value="class" checked> Classification (Hit / Coverage)</label>
+        </div>
+        <div class="row" style="margin-top:-6px">
+          <label class="hitem"><input type="radio" name="viewMode" value="reg"> Regression (MAE / MSE / R²)</label>
         </div>
         <div>
           <label>Horizon Filters (default: all on)</label>
@@ -187,17 +195,20 @@
   <script>
   const dom = id => document.getElementById(id);
 
-  // ---- Grouped S3 URLs for each instrument (exact URLs you provided) ----
+  // ---- Grouped S3 URLs for each instrument ----
   const S3_SETS = {
     ZN: {
       summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary.csv",
       frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier.csv",
       calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib.csv"
+      // (optional) add regression URL here if you ever host one
+      // reg:   "https://hft-oos.s3.us-east-2.amazonaws.com/regression.csv"
     },
     ES: {
-      summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary_ES202509.csv",
-      frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier_ES202509.csv",
-      calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib_ES202509.csv"
+      summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary_ES.csv",
+      frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier_ES.csv",
+      calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib_ES.csv"
+      // reg: "https://hft-oos.s3.us-east-2.amazonaws.com/regression_ES.csv"
     }
   };
 
@@ -206,6 +217,8 @@
   let chart;
   let currentInstrument = 'ZN';
 
+
+  // ---------- helpers ----------
   function resetAll(){
     state.files = [];
     dom('horizonList').innerHTML = '';
@@ -224,7 +237,7 @@
   function updateTitle(){
     const t = dom('chartTitle');
     const selected = state.files.filter(f=>f.selected);
-    const sym = currentInstrument || 'ZN';           // show selected symbol in title
+    const sym = currentInstrument || 'ZN';
     if(selected.length === 1){
       t.textContent = `HIT–COVERAGE Frontier • ${sym} (${selected[0].name})`;
     } else if(selected.length > 1){
@@ -260,6 +273,7 @@
     if (cols.includes('hit') && cols.includes('cov')) return (cols.includes('mode') ? 'frontier' : 'calib');
     return 'unknown';
   }
+
   function paretoFront(points){
     if(!points.length) return [];
     const sorted=[...points].sort((a,b)=>b.x===a.x?b.y-a.y:b.x-a.x);
@@ -269,9 +283,15 @@
     return out;
   }
   function euclidBest(frontier){
-    if(!frontier.length) return null;
-    let best=null, d=Infinity;
-    for(const p of frontier){ const dd=Math.hypot(1-p.x, 1-p.y); if(dd<d){ d=dd; best=p; } }
+    if (!frontier.length) return null;
+    let best = null, d = Infinity;
+    for (const p of frontier){
+      const dd = Math.hypot(1 - p.x, 1 - p.y);
+      if (dd < d){
+        d = dd;
+        best = p;        // set best inside the same branch
+      }
+    }
     return best;
   }
   function filterBasic(points){
@@ -280,38 +300,110 @@
     return points.filter(p => (p.y>=minHit && p.x>=minCov));
   }
 
-  function parseFrontierLike(rows){
-    if(!rows.length) return { aggPts: [], hmap: new Map(), horizons: [] };
+  // pick first numeric among keys
+  function pickFirstNum(row, keys) {
+    for (const k of keys) {
+      if (k in row && Number.isFinite(+row[k])) return +row[k];
+    }
+    return undefined;
+  }
+
+  // ---------- NEW: regression helpers ----------
+  function normalizeHorizonToMs(h){
+    if (h == null) return undefined;
+    const s = String(h).trim().toLowerCase();
+    if (/^\d+ms$/.test(s)) return parseInt(s,10);
+    if (/^\d+(\.\d+)?m(in)?$/.test(s)) return Math.round(parseFloat(s) * 60_000);
+    if (/^\d+(\.\d+)?s(ec)?$/.test(s)) return Math.round(parseFloat(s) * 1_000);
+    if (/^\d+$/.test(s)) {
+      // Bare number: assume milliseconds if big, else seconds (>= 60 means seconds -> ms)
+      const n = parseInt(s,10);
+      if (n >= 10_000) return n;              // looks like ms
+      if (n >= 60) return n * 1_000;          // seconds
+      // if it's e.g. "5" we assume minutes (5m) since your horizons are multi-minute
+      return n * 60_000;
+    }
+    // patterns like "300000" inside a label "h=300000ms"
+    const m = s.match(/(\d+)\s*ms/);
+    if (m) return parseInt(m[1],10);
+    const m2 = s.match(/(\d+)\s*s(ec)?/);
+    if (m2) return parseInt(m2[1],10) * 1000;
+    const m3 = s.match(/(\d+)\s*m(in)?/);
+    if (m3) return parseInt(m3[1],10) * 60_000;
+    return undefined;
+  }
+
+  // ---- parse: frontier & calib (attach regression to agg & per-h points)
+  // helper: pick first numeric among keys
+  function pickFirstNum(row, keys) {
+    for (const k of keys) {
+      if (k in row && Number.isFinite(+row[k])) return +row[k];
+    }
+    return undefined;
+  }
+
+  // parseFrontierLike now tags source and returns recoPts
+  function parseFrontierLike(rows, sourceTag = 'frontier'){
+    if(!rows.length) return { aggPts: [], hmap: new Map(), horizons: [], recoPts: [] };
+
     const cols = Object.keys(rows[0] || {});
+    const firstCol = cols[0];
     const aggPts = [];
+    const recoPts = [];
     const hmap = new Map();
     const horizons = new Set();
-
-    function pushPerH(h, cov, hit, metaBase){
-      if(!Number.isFinite(cov) || !Number.isFinite(hit)) return;
-      const hh = `${h}ms`;
-      const meta = { ...metaBase, horizon: hh };
-      const pt = { x: cov, y: hit, label: `h=${hh} • q=${meta.q}, tau=${meta.tau}` + (Number.isFinite(meta.util)? ` • util=${meta.util.toFixed(3)}` : ''), meta };
-      if(!hmap.has(hh)) hmap.set(hh, []);
-      hmap.get(hh).push(pt);
-      horizons.add(hh);
-    }
+    let inReco = false;
 
     const hitHCols = cols.filter(c => /^hit_\d+ms$/i.test(c));
     const hNums = [...new Set(hitHCols.map(c => c.match(/^hit_(\d+)ms$/i)[1]))]
       .sort((a,b)=>parseInt(a)-parseInt(b));
 
+    function pickFirstNum(row, keys) {
+      for (const k of keys) if (k in row && Number.isFinite(+row[k])) return +row[k];
+      return undefined;
+    }
+
+    function pushPerH(h, cov, hit, metaBase, row, isReco){
+      if(!Number.isFinite(cov) || !Number.isFinite(hit)) return;
+      const hh = `${h}ms`;
+      const mae_h = pickFirstNum(row, [`mae_${h}ms`,`MAE_${h}ms`,`mae_${h}`,`MAE_${h}`]);
+      const mse_h = pickFirstNum(row, [`mse_${h}ms`,`MSE_${h}ms`,`mse_${h}`,`MSE_${h}`]);
+      const r2_h  = pickFirstNum(row,  [`r2_${h}ms`, `R2_${h}ms`, `r2_${h}`, `R2_${h}`]);
+
+      const meta = {
+        ...metaBase,
+        horizon: hh,
+        mae: (mae_h !== undefined) ? mae_h : pickFirstNum(row, ['mae','MAE']),
+        mse: (mse_h !== undefined) ? mse_h : pickFirstNum(row, ['mse','MSE']),
+        r2 : (r2_h  !== undefined) ? r2_h  : pickFirstNum(row, ['r2','R2']),
+        reco: isReco,
+        source: sourceTag
+      };
+      const pt = { x: cov, y: hit, label: `${isReco?'RECO • ':''}h=${hh}`, meta };
+      if(!hmap.has(hh)) hmap.set(hh, []);
+      hmap.get(hh).push(pt);
+      horizons.add(hh);
+    }
+
     for(const r of rows){
+      if (firstCol && r[firstCol] === 'RECOMMENDATIONS_TOPK') { inReco = true; continue; }
+
       const x = +r.cov, y = +r.hit;
       if(Number.isFinite(x) && Number.isFinite(y)){
         const q = (r.q ?? r.quantile);
-        theTau = r.tau; const tau = theTau; // keep name stable
+        const tau = r.tau;
         const util = (r.util !== undefined ? +r.util : NaN);
-        aggPts.push({
-          x, y,
-          label: `q=${q}, tau=${tau}${Number.isFinite(util)?`, util=${util.toFixed(3)}`:''}`,
-          meta: { q, tau, util, mode: r.mode, robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined) }
-        });
+        const metaAgg = {
+          q, tau, util, mode: r.mode,
+          robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined),
+          mae: pickFirstNum(r, ['mae','MAE']),
+          mse: pickFirstNum(r, ['mse','MSE']),
+          r2 : pickFirstNum(r, ['r2','R2']),
+          reco: inReco,
+          source: sourceTag
+        };
+        const obj = { x, y, label: (inReco?'RECO • ':'') + `q=${q}, tau=${tau}${Number.isFinite(util)?`, util=${util.toFixed(3)}`:''}`, meta: metaAgg };
+        (inReco ? recoPts : aggPts).push(obj);
       }
 
       const metaBase = {
@@ -324,12 +416,24 @@
       for(const h of hNums){
         const hit = +r[`hit_${h}ms`];
         const cov = +r[`cov_${h}ms`];
-        pushPerH(h, cov, hit, metaBase);
+        pushPerH(h, cov, hit, metaBase, r, inReco);
       }
     }
-    return { aggPts, hmap, horizons: [...horizons] };
+
+    return { aggPts, hmap, horizons: [...horizons], recoPts };
   }
 
+  // ---- parse: summary (per-horizon points + regression with fallbacks)
+  // Heuristic normalizer: raw-price → dec units
+  function normalizeRegression(meta){
+    // Only scale if values are clearly too large to be in dec units
+    if (Number.isFinite(meta.mae) && Math.abs(meta.mae) > 100) meta.mae /= 1e4; // ~bps→dec
+    if (Number.isFinite(meta.mse) && Math.abs(meta.mse) > 1e6) meta.mse /= 1e8; // (~bps^2)→dec^2
+    // R² is unitless — leave as-is
+    return meta;
+  }
+
+  // ---- parse: summary (per-horizon points + regression with fallbacks)
   function parseSummary(rows){
     const cols = Object.keys(rows[0] || {});
     const hitCols = cols.filter(c => c.startsWith('HSEL_HIT_THR_'));
@@ -339,23 +443,46 @@
     const aggFromSummary = [];
     const hmap = new Map();
 
+    const hasRunMAE = cols.includes('HSEL_MAE');
+    const hasRunMSE = cols.includes('HSEL_MSE');
+    const hasRunR2  = cols.includes('HSEL_R2');
+
     const runTagKeys = ['date','model_tag','note','CONF_Q','DIR_THR_BPS','thr_bps'];
     const hasRunTag = (r,k) => Object.prototype.hasOwnProperty.call(r,k);
 
-    for(const r of rows){
-      for(const h of horizons){
+    for (const r of rows){
+      for (const h of horizons){
         const hit = +r[`HSEL_HIT_THR_${h}`];
         const cov = +r[covCol(h)];
-        if(!Number.isFinite(hit)||!Number.isFinite(cov)) continue;
+        if (!Number.isFinite(hit) || !Number.isFinite(cov)) continue;
 
-        const meta = {horizon:h};
-        for(const k of runTagKeys) if(hasRunTag(r,k)) meta[k]=r[k];
+        // per-h regression candidates
+        const mae = pickFirstNum(r, [`MAE_${h}`, `MAE_${h.toLowerCase()}`, `MAE_${h}ms`, `HSEL_MAE_${h}`, `HSEL_MAE_${h}ms`]);
+        const mse = pickFirstNum(r, [`MSE_${h}`, `MSE_${h.toLowerCase()}`, `MSE_${h}ms`, `HSEL_MSE_${h}`, `HSEL_MSE_${h}ms`]);
+        const r2  = pickFirstNum(r, [`R2_${h}`, `R2_${h.toLowerCase()}`, `R2_${h}ms`, `HSEL_R2_${h}`, `HSEL_R2_${h}ms`]);
 
-        const pt = { x: cov, y: hit, label: `summary • ${h}${meta.thr_bps?` | thr=${meta.thr_bps}`:''}`, meta };
+        const maeFinal = (mae !== undefined) ? mae : (hasRunMAE ? +r.HSEL_MAE : undefined);
+        const mseFinal = (mse !== undefined) ? mse : (hasRunMSE ? +r.HSEL_MSE : undefined);
+        const r2Final  = (r2  !== undefined) ? r2  : (hasRunR2  ? +r.HSEL_R2  : undefined);
 
-        if(!hmap.has(h)) hmap.set(h, []);
+        // build + normalize meta
+        const meta = normalizeRegression({
+          horizon: h,
+          mae: maeFinal,
+          mse: mseFinal,
+          r2 : r2Final,
+          source: 'summary'
+        });
+        for (const k of runTagKeys) if (hasRunTag(r,k)) meta[k] = r[k];
+
+        const pt = {
+          x: cov, y: hit,
+          label: `summary • ${h}${meta.thr_bps ? ` | thr=${meta.thr_bps}` : ''}`,
+          meta
+        };
+
+        if (!hmap.has(h)) hmap.set(h, []);
         hmap.get(h).push(pt);
-
         aggFromSummary.push({ ...pt, label: pt.label });
       }
     }
@@ -401,23 +528,44 @@
       responsive:true, maintainAspectRatio:false, parsing:{xAxisKey:'x', yAxisKey:'y'}, animation:false,
       layout:{padding:{left:8,right:46,top:8,bottom:28}},
       scales:{
-        x:{min:0,max:1,grid:{color:'#273049'},ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}},
-        y:{min:0,max:1,grid:{color:'#273049'},ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}}
+        x:{type:'linear', min:0, max:1, grid:{color:'#273049'},
+           ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}},
+        y:{type:'linear', min:0, max:1, grid:{color:'#273049'},
+           ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}}
       },
       plugins:{
         legend:{labels:{color:'#e2e8f0',font:{size:12}}},
         tooltip:{callbacks:{
           title:items=>items?.[0]?.raw?.label||'Point',
-          label:ctx=>{
-            const m=(ctx.raw&&ctx.raw.meta)||{}; const lines=[];
-            lines.push(`Coverage: ${(ctx.parsed.x*100).toFixed(2)}%`);
-            lines.push(`Hit: ${(ctx.parsed.y*100).toFixed(2)}%`);
-            if(m.horizon) lines.push(`Horizon: ${m.horizon}`);
-            if(m.q!==undefined) lines.push(`q: ${m.q}`);
-            if(m.tau!==undefined) lines.push(`tau: ${m.tau}`);
-            if(typeof m.util==='number'&&!isNaN(m.util)) lines.push(`util: ${m.util.toFixed(3)}`);
-            if(m.date) lines.push(`date: ${m.date}`);
-            if(m.model_tag) lines.push(`model: ${m.model_tag}`);
+          label: ctx => {
+            const raw = ctx.raw || {};
+            const m = raw.meta || {};
+            const lines = [];
+            const viewMode = document.querySelector('input[name="viewMode"]:checked')?.value || 'class';
+
+            if (viewMode === 'class') {
+              lines.push(`Coverage: ${(ctx.parsed.x * 100).toFixed(2)}%`);
+              lines.push(`Hit: ${(ctx.parsed.y * 100).toFixed(2)}%`);
+              if (m.horizon) lines.push(`Horizon: ${m.horizon}`);
+              if (m.q !== undefined) lines.push(`q: ${m.q}`);
+              if (m.tau !== undefined) lines.push(`tau: ${m.tau}`);
+              if (typeof m.util === 'number' && !isNaN(m.util)) lines.push(`util: ${m.util.toFixed(3)}`);
+              if (m.date) lines.push(`date: ${m.date}`);
+              if (m.model_tag) lines.push(`model: ${m.model_tag}`);
+              return lines;
+            }
+
+            // Regression tooltip
+            const mae = m.mae ?? m.MAE ?? m.MaE;
+            const mse = m.mse ?? m.MSE ?? m.MsE;
+            const r2  = m.r2  ?? m.R2  ?? m.Rsq;
+            if (typeof mae === 'number') lines.push(`MAE: ${mae.toFixed(4)}`);
+            if (typeof mse === 'number') lines.push(`MSE: ${mse.toFixed(4)}`);
+            if (typeof r2  === 'number') lines.push(`R²: ${r2.toFixed(4)}`);
+            if (lines.length === 0) lines.push('Regression metrics unavailable');
+            if (m.horizon) lines.push(`Horizon: ${m.horizon}`);
+            if (m.q !== undefined) lines.push(`q: ${m.q}`);
+            if (m.tau !== undefined) lines.push(`tau: ${m.tau}`);
             return lines;
           }
         }},
@@ -453,51 +601,123 @@
     const keepPerH = dom('showPerH').checked;
     const hSel = selectedHorizons();
 
+    const EPS = 1e-6;
+    const clamp01 = v => Math.min(1 - EPS, Math.max(EPS, v));
+
     let pts = [];
-    for(const f of selectedFiles()){
-      if(keepAgg) pts.push(...f.aggPts);
-      if(keepPerH){
-        for(const [h, arr] of f.hmap.entries()){
-          if(hSel.has(h)) pts.push(...arr);
+    let reco = [];
+
+    for (const f of selectedFiles()){
+      if (keepAgg){
+        pts.push(...(f.aggPts || []));
+        if (f.recoPts?.length) reco.push(...f.recoPts);
+      }
+      if (keepPerH){
+        for (const [h, arr] of f.hmap.entries()){
+          if (hSel.has(h)) pts.push(...arr);
         }
       }
     }
 
     const filtered = filterBasic(pts);
-    const frontier = paretoFront(filtered);
-    const best = euclidBest(frontier);
+
+    // Build frontier from true-frontier points if present; else from whatever is visible (summary-only fallback)
+    // Use only true frontier non-recommendations for the line
+    const frontierCandidates = filtered.filter(p => p?.meta?.source === 'frontier' && !p?.meta?.reco);
+    const frontierBase = frontierCandidates.length ? frontierCandidates : filtered;
+    const frontier = paretoFront(frontierBase);
+    const best     = euclidBest(frontier);
 
     const datasets = [
-      {type:'scatter', label:'Points',
-       data:filtered.map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
-       pointRadius:7, pointHoverRadius:9,
-       pointBackgroundColor:'#e5e7eb', pointBorderColor:'#0f172a', pointBorderWidth:1.5},
-      {type:'scatter', label:'Pareto Points',
-       data:frontier.map(p=>({x:p.x,y:p.y,label:`Pareto • ${p.label||''}`,meta:p.meta})),
-       pointRadius:9, pointHoverRadius:11, pointStyle:'rectRounded',
-       pointBackgroundColor:'#22d3ee', pointBorderColor:'#022c3a', pointBorderWidth:2},
-      {type:'line', label:'Pareto Frontier',
-       data:frontier.map(p=>({x:p.x,y:p.y})),
-       borderColor:'#06b6d4', borderWidth:4, pointRadius:0, tension:0.15, spanGaps:true}
+      {
+        type:'scatter', label:'Points', order:10,
+        data: filtered.filter(p=>!p?.meta?.reco)
+                      .map(p=>({ x:p.x, y:p.y, label:p.label, meta:p.meta })),
+        pointRadius:7, pointHoverRadius:9,
+        pointBackgroundColor:'#e5e7eb', pointBorderColor:'#0f172a', pointBorderWidth:1.5
+      },
+      {
+        type:'scatter', label:'Recommendations', order:20,
+        data: reco.map(p=>({ x:p.x, y:p.y, label:p.label, meta:p.meta })),
+        pointRadius:9, pointHoverRadius:11, pointStyle:'rectRot',
+        pointBackgroundColor:'#f59e0b', pointBorderColor:'#7c2d12', pointBorderWidth:2
+      }
     ];
-    if(best){
-      datasets.push({type:'scatter', label:'Euclidean Best',
-        data:[{x:best.x,y:best.y,label:`Closest to (1,1) • ${best.label||''}`,meta:best.meta}],
+
+    // Pareto points (clamped so they’re visible even at Hit=1.0)
+    if (frontier.length){
+      datasets.push({
+        type:'scatter', label:'Pareto Points', order:95,
+        data: frontier.map(p => ({
+          x: clamp01(p.x), y: clamp01(p.y),
+          label:`Pareto • ${p.label||''}`, meta:p.meta
+        })),
+        pointRadius:10, pointHoverRadius:12, pointStyle:'rectRounded',
+        pointBackgroundColor:'#22d3ee', pointBorderColor:'#022c3a', pointBorderWidth:2.5,
+        clip: false
+      });
+    }
+
+    // --- Pareto frontier (points + line)
+    if (frontier.length >= 1) {
+      // Remove duplicates and ensure sorted X order
+      const uniq = [];
+      const seen = new Set();
+      for (const p of frontier) {
+        const key = `${p.x.toFixed(6)}_${p.y.toFixed(6)}`;
+        if (!seen.has(key)) { uniq.push({ x: p.x, y: p.y }); seen.add(key); }
+      }
+      uniq.sort((a,b) => a.x - b.x);
+
+      // If only 1 Pareto point, duplicate slightly so Chart.js renders a segment
+      if (uniq.length === 1) {
+        uniq.push({ x: uniq[0].x + 1e-6, y: uniq[0].y });
+      }
+
+      datasets.push({
+        type: 'line',
+        label: 'Pareto Frontier',
+        data: uniq,
+        parsing: false,                  // use x/y directly
+        order: 99,                       // draw on top
+        borderColor: '#06b6d4',
+        borderWidth: 3,
+        tension: 0.25,
+        spanGaps: true,
+        pointRadius: 0,
+        showLine: true
+      });
+    }
+
+    if (best){
+      datasets.push({
+        type:'scatter', label:'Euclidean Best', order:97,
+        data:[{ x: clamp01(best.x), y: clamp01(best.y),
+                label:`Closest to (1,1) • ${best.label||''}`, meta:best.meta }],
         pointRadius:10, pointHoverRadius:12, pointStyle:'star',
-        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2});
-      datasets.push({type:'line', label:'Line to Utopia',
-        data:[{x:best.x,y:best.y},{x:1,y:1}], borderColor:'#f97316', borderWidth:2, borderDash:[6,6], pointRadius:0});
-      datasets.push({type:'scatter', label:'Utopia (1,1)',
-        data:[{x:1,y:1}], pointRadius:6, pointStyle:'triangle',
-        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2});
+        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2,
+        clip:false
+      });
+      datasets.push({
+        type:'line', label:'Line to Utopia', order:98,
+        data:[{ x: clamp01(best.x), y: clamp01(best.y) }, { x: 1 - EPS, y: 1 - EPS }],
+        borderColor:'#f97316', borderWidth:2, borderDash:[6,6], pointRadius:0, clip:false
+      });
+      datasets.push({
+        type:'scatter', label:'Utopia (1,1)', order:96,
+        data:[{ x: 1 - EPS, y: 1 - EPS }],
+        pointRadius:6, pointStyle:'triangle',
+        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2,
+        clip:false
+      });
     }
 
     const canvas = dom('chart');
     const ctx = canvas.getContext('2d');
-    if(chart) chart.destroy();
-    chart = new Chart(ctx, { data:{datasets}, options: baseChartOptions() });
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, { data:{ datasets }, options: baseChartOptions() });
 
-    // enable zoom only on hover
+    // Hover-enable zoom
     canvas.addEventListener('mouseenter', ()=> setZoomEnabled(chart, true));
     canvas.addEventListener('mouseleave', ()=> setZoomEnabled(chart, false));
     canvas.addEventListener('touchstart', ()=> setZoomEnabled(chart, true), {passive:true});
@@ -506,17 +726,19 @@
 
     // KPIs
     const k = dom('kpis');
-    if(filtered.length){
-      const maxHit=filtered.reduce((m,p)=>Math.max(m,p.y),0);
-      const maxCov=filtered.reduce((m,p)=>Math.max(m,p.x),0);
-      const sweet=filtered.filter(p=>p.y>=0.91&&p.x>=0.5).length;
+    if (filtered.length){
+      const maxHit = filtered.reduce((m,p)=>Math.max(m,p.y),0);
+      const maxCov = filtered.reduce((m,p)=>Math.max(m,p.x),0);
+      const sweet  = filtered.filter(p=>p.y>=0.91 && p.x>=0.5).length;
       k.style.display='grid';
-      k.innerHTML=`
+      k.innerHTML = `
         <div class="item"><div class="big">${filtered.length}</div><div class="pill">Points</div></div>
         <div class="item"><div class="big">${(maxHit*100).toFixed(1)}%</div><div class="pill">Best Hit</div></div>
         <div class="item"><div class="big">${(maxCov*100).toFixed(1)}%</div><div class="pill">Best Coverage</div></div>
         <div class="item"><div class="big">${sweet}</div><div class="pill">Sweet Zone (≥91% hit & ≥50% cov)</div></div>`;
-    } else { k.style.display='none'; k.innerHTML=''; }
+    } else {
+      k.style.display='none'; k.innerHTML='';
+    }
 
     updateInlineSummary(frontier, filtered);
   }
@@ -526,7 +748,7 @@
     const cols = Object.keys(rows[0] || {});
     const kind = autoDetectType(cols);
 
-    let fileObj = { name: filename, selected: true, aggPts: [], hmap: new Map(), horizons: new Set() };
+    let fileObj = { name: filename, selected: true, aggPts: [], hmap: new Map(), horizons: new Set(), recoPts: [] };
 
     if(kind==='summary'){
       const { horizons, aggFromSummary, hmap } = parseSummary(rows);
@@ -535,10 +757,11 @@
       fileObj.horizons = new Set(horizons);
     }
     else if(kind==='frontier' || kind==='calib'){
-      const { aggPts, hmap, horizons } = parseFrontierLike(rows);
+      const { aggPts, hmap, horizons, recoPts } = parseFrontierLike(rows, kind==='calib' ? 'calib' : 'frontier');
       fileObj.aggPts = aggPts;
       fileObj.hmap = hmap;
       fileObj.horizons = new Set(horizons);
+      fileObj.recoPts = recoPts;            // <-- keep recommendations
     }
     else { console.warn('Unknown dataset type for', filename); return; }
 
@@ -583,6 +806,21 @@
         addChipBadge(`failed: ${prefix}-${role} (${err.message || 'CORS?'})`);
       }
     }
+
+    // Optional: if you later specify urlSet.reg, load & index it too
+    if (urlSet.reg){
+      try{
+        const res = await fetch(urlSet.reg, { method:'GET', mode:'cors' });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const csvText = await res.text();
+        const parsed = Papa.parse(csvText, { header:true, dynamicTyping:true, skipEmptyLines:true });
+        showRegStatus(`Loaded regression metrics (${prefix}-reg.csv)`);
+        enrichAllPointsWithRegression();
+        renderCombined();
+      } catch (err) {
+        showRegStatus(`Regression (remote) failed: ${err?.message||'CORS?'}`, true);
+      }
+    }
   }
 
   function updateTrainingLabel(){
@@ -613,21 +851,16 @@
     updateTrainingLabel();
   });
 
+  // Toggle affects tooltip only (not axes/plot)
+  document.querySelectorAll('input[name="viewMode"]').forEach(r => {
+    r.addEventListener('change', () => { if(chart) chart.update(); });
+  });
+
   // Initial load (ZN by default)
   document.addEventListener('DOMContentLoaded', ()=>{
     loadFromS3Set(S3_SETS.ZN, 'ZN');
     updateTrainingLabel();
   });
-
-  // Switch listener for instrument dropdown
-  dom('symbolSelect').addEventListener('change', async (e) => {
-    const selected = e.target.value;
-    currentInstrument = selected;
-    await loadFromS3Set(S3_SETS[selected], selected);
-    updateTrainingLabel();
-    updateTitle();  // ✅ Refresh the chart title dynamically
-  });
-
   </script>
 </body>
 </html>
