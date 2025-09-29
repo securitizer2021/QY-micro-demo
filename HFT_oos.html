@@ -363,20 +363,23 @@
       if(!Number.isFinite(cov) || !Number.isFinite(hit)) return;
       const hh = `${h}ms`;
 
-      // STRICT: use only per-h metrics if present; no row-level fallback
+      // Use per-h metrics if present
       const mae_h = pickFirstNum(row, [`mae_${h}ms`,`MAE_${h}ms`,`mae_${h}`,`MAE_${h}`]);
       const mse_h = pickFirstNum(row, [`mse_${h}ms`,`MSE_${h}ms`,`mse_${h}`,`MSE_${h}`]);
-      const r2_h  = pickFirstNum(row, [`r2_${h}ms`, `R2_${h}ms`, `r2_${h}`, `R2_${h}`]);
+      const r2_h  = pickFirstNum(row, [`r2_${h}ms`,`R2_${h}ms`,`r2_${h}`,`R2_${h}`]);
 
-      const meta = {
+      let meta = {
         ...metaBase,
         horizon: hh,
-        // attach only if present; undefined otherwise
+        source: 'frontier',              // <— mark source
         ...(mae_h !== undefined ? { mae: mae_h } : {}),
         ...(mse_h !== undefined ? { mse: mse_h } : {}),
         ...(r2_h  !== undefined ? { r2 : r2_h }  : {}),
         reco: isReco
       };
+
+      // <— normalize bps / bps^2 to decimals so tooltips pass sanity checks
+      meta = normalizeRegression(meta);
 
       const labelBits = [`h=${hh}`];
       if (meta.q !== undefined)   labelBits.push(`q=${meta.q}`);
@@ -791,6 +794,21 @@
       `<span class="pill" style="border-color:${border};color:${color}">${text}</span>`);
   }
 
+  // Helper: strip BOM/ZWSP, trim, and add lowercase aliases for every column key
+  function cleanRows(rows) {
+    return rows.map(r => {
+      const out = {};
+      for (const k in r) {
+        if (!Object.hasOwn(r, k)) continue;
+        const trimmed = String(k).replace(/^\uFEFF|\u200B/g, '').trim();
+        out[trimmed] = r[k];                 // original, cleaned
+        const lower  = trimmed.toLowerCase();
+        if (!(lower in out)) out[lower] = r[k]; // alias in lowercase (helps matching)
+      }
+      return out;
+    });
+  }
+
   // Load one instrument's 3 CSVs, prefixing names in the chip list
   async function loadFromS3Set(urlSet, prefix='ZN'){
     resetAll();
@@ -804,7 +822,8 @@
       try {
         const res = await fetch(url, { method: "GET", mode: "cors" });
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const csvText = await res.text();
+        // strip BOM at file start (rare but happens)
+        const csvText = (await res.text()).replace(/^\uFEFF/, '');
 
         const parsed = Papa.parse(csvText, {
           header: true, dynamicTyping: true, skipEmptyLines: true
@@ -813,19 +832,21 @@
           console.warn(`${prefix}-${role} parse warnings:`, parsed.errors.slice(0,3));
         }
 
-        handleRows(parsed.data || [], `${prefix}-${role}.csv`);
+        // >>> KEY FIX: normalize column names so "mae_250ms" etc. are found on ZN
+        const rows = cleanRows(parsed.data || []);
+        if (rows.length) handleRows(rows, `${prefix}-${role}.csv`);
       } catch (err) {
         console.error(`Load failed for ${prefix}-${role}:`, err);
         addChipBadge(`failed: ${prefix}-${role} (${err.message || 'CORS?'})`);
       }
     }
 
-    // Optional: if you later specify urlSet.reg, load & index it too
+    // Optional: if you later specify urlSet.reg, load & index it too (unchanged)
     if (urlSet.reg){
       try{
         const res = await fetch(urlSet.reg, { method:'GET', mode:'cors' });
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const csvText = await res.text();
+        const csvText = (await res.text()).replace(/^\uFEFF/, '');
         const parsed = Papa.parse(csvText, { header:true, dynamicTyping:true, skipEmptyLines:true });
         showRegStatus(`Loaded regression metrics (${prefix}-reg.csv)`);
         enrichAllPointsWithRegression();
