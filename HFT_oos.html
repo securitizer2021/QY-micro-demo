@@ -549,16 +549,16 @@ function renderCombined(){
       datasets.push({
         type:'scatter', label:'Recommendations (Aggregate)', order:20,
         data: filterBasic(recoAgg).map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
-        pointRadius:9, pointHoverRadius:11, pointStyle:'rectRot',
-        pointBackgroundColor:'#f59e0b', pointBorderColor:'#7c2d12', pointBorderWidth:2
+        pointRadius:9, pointHoverRadius:11, pointStyle:'rectRot', 
+        pointBackgroundColor:'#ef4444', pointBorderColor:'#7c2d12', pointBorderWidth:2
       });
     }
     if (recoPerH.length){
       datasets.push({
         type:'scatter', label:'Recommendations (Per-Horizon)', order:21,
         data: filterBasic(recoPerH).map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
-        pointRadius:9, pointHoverRadius:11, pointStyle:'rectRounded',
-        pointBackgroundColor:'#a78bfa', pointBorderColor:'#4c1d95', pointBorderWidth:2
+        pointRadius:9, pointHoverRadius:11, pointStyle:'rect',
+        pointBackgroundColor:'#a78bfa', pointBorderColor:'#3b0764', pointBorderWidth:2
       });
     }
   }
