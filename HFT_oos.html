@@ -156,8 +156,8 @@ canvas{width:100% !important;height:100% !important;touch-action:none}
       <!-- 🆕 Added explanatory footnotes -->
       <div style="margin-top:10px; line-height:1.5; color:#9aa3b2; font-size:12px;">
         <strong>Footnotes:</strong><br>
-        • <em>Aggregate Recommendations (RECO_AGG)</em> represent top-K Pareto-efficient parameter sets 
-        (q, τ, util) evaluated across <u>all horizons</u> — providing overall configuration guidance.<br>
+        <!-- • <em>Aggregate Recommendations (RECO_AGG)</em> represent top-K Pareto-efficient parameter sets 
+        (q, τ, util) evaluated across <u>all horizons</u> — providing overall configuration guidance.<br> -->
         • <em>Per-Horizon Recommendations (RECO_PERH)</em> isolate the most tradable candidates 
         for a <u>specific horizon</u> (e.g., 250 ms or 500 ms), including regression metrics 
         (MAE / MSE / R²) when available. These are the points highlighted in purple on the chart.
@@ -546,12 +546,12 @@ function renderCombined(){
 
   if (showRecs){
     if (recoAgg.length){
-      datasets.push({
-        type:'scatter', label:'Recommendations (Aggregate)', order:20,
-        data: filterBasic(recoAgg).map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
-        pointRadius:9, pointHoverRadius:11, pointStyle:'rectRot', 
-        pointBackgroundColor:'#ef4444', pointBorderColor:'#7c2d12', pointBorderWidth:2
-      });
+      // datasets.push({
+      //   type:'scatter', label:'Recommendations (Aggregate)', order:20,
+      //   data: filterBasic(recoAgg).map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
+      //   pointRadius:9, pointHoverRadius:11, pointStyle:'rectRot', 
+      //   pointBackgroundColor:'#ef4444', pointBorderColor:'#7c2d12', pointBorderWidth:2
+      // });
     }
     if (recoPerH.length){
       datasets.push({
