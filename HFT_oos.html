@@ -1,900 +1,719 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HIT–COVERAGE Frontier • Combined</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>HIT–COVERAGE Frontier • Combined</title>
 
-  <!-- Fonts & libs -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
-  <script>
-    (function () {
-      const p = window.ChartZoom || (window['chartjs-plugin-zoom'] && window['chartjs-plugin-zoom'].default);
-      if (p && window.Chart) { window.Chart.register(p); }
-      else { console.warn('chartjs-plugin-zoom not found/registered'); }
-    })();
-  </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+<script>(function(){const p=window.ChartZoom||(window['chartjs-plugin-zoom']&&window['chartjs-plugin-zoom'].default);if(p&&window.Chart){window.Chart.register(p);}else{console.warn('chartjs-plugin-zoom not found/registered');}})();</script>
 
-  <style>
-    :root { --bg:#0b0e14; --panel:#141824; --muted:#9aa3b2; --text:#e6e9ef; --accent:#60a5fa; }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    .wrap{display:grid;grid-template-columns:340px 1fr;gap:20px;padding:20px}
-    .card{background:var(--panel);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:18px;overflow:hidden}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .grid-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .stack{display:grid;grid-template-columns:1fr;gap:12px}
-    label{font-size:12px;color:var(--muted)}
-    input[type="number"],select{background:#0f1320;border:1px solid #1e2435;color:var(--text);padding:8px 10px;border-radius:10px;font-size:13px;width:100%}
-    input[type="file"]{font-size:12px;color:#cbd5e1}
-    button{background:var(--accent);border:none;color:white;padding:10px 12px;border-radius:10px;font-weight:600;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid #273049;color:var(--text)}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;background:#0f1320;border:1px solid #1e2435;color:#9aa3b2}
-    .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
-    .kpi .item{background:#0f1320;border:1px solid #1e2435;border-radius:12px;padding:12px;text-align:center}
-    .kpi .big{font-size:16px;font-weight:700}
-    .hr{height:1px;background:#1e2435;margin:14px 0}
-    .note{font-size:12px;color:var(--muted)}
-    .hlist{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:180px;overflow:auto;padding:6px;background:#0f1320;border:1px solid #1e2435;border-radius:10px}
-    .hitem{display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1}
-    .hitem input{accent-color:#60a5fa}
-    .chart-wrap{position:relative;width:100%;height:420px;margin:12px 24px 12px 48px; padding-bottom:40px;overscroll-behavior:contain}
-    canvas{width:100% !important;height:100% !important; touch-action:none}
-    .axis-title{position:absolute;color:#cbd5e1;font-size:13px;font-weight:600;pointer-events:none;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)}
-    .axis-title.x{bottom:28px;left:50%;transform:translateX(-50%)}
-    .axis-title.y{top:50%;left:-50px;transform:translateY(-50%) rotate(-90deg)}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-    .chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid #273049;background:#0f1320;color:#cbd5e1;font-size:12px}
-    .chip input{accent-color:#60a5fa}
-    .footer-wrap{display:flex;justify-content:center;margin-top:1px}
-    .footer{font-size:12px;color:#cbd5e1;text-align:center}
-    .summary-bar{display:flex;gap:10px;flex-wrap:wrap;background:#0f1320;border:1px solid #1e2435;color:#e6e9ef;border-radius:10px;padding:8px 10px;margin-bottom:8px}
-    .summary-bar .kv{display:flex;gap:6px;align-items:center;font-size:12px}
-    .euclid-pill{background:#f97316;color:#fff;border:none}
-    @media (max-width: 1000px){ .wrap{grid-template-columns:1fr} }
-  </style>
+<style>
+:root{--bg:#0b0e14;--panel:#141824;--muted:#9aa3b2;--text:#e6e9ef;--accent:#60a5fa}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+.wrap{display:grid;grid-template-columns:340px 1fr;gap:20px;padding:20px}
+.card{background:var(--panel);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:18px;overflow:hidden}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grid-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stack{display:grid;grid-template-columns:1fr;gap:12px}
+label{font-size:12px;color:var(--muted)}
+input[type="number"],select{background:#0f1320;border:1px solid #1e2435;color:var(--text);padding:8px 10px;border-radius:10px;font-size:13px;width:100%}
+input[type="file"]{font-size:12px;color:#cbd5e1}
+button{background:var(--accent);border:none;color:white;padding:10px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;border:1px solid #273049;color:var(--text)}
+.pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;background:#0f1320;border:1px solid #1e2435;color:#9aa3b2}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.kpi .item{background:#0f1320;border:1px solid #1e2435;border-radius:12px;padding:12px;text-align:center}
+.kpi .big{font-size:16px;font-weight:700}
+.hr{height:1px;background:#1e2435;margin:14px 0}
+.note{font-size:12px;color:var(--muted)}
+.hlist{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:180px;overflow:auto;padding:6px;background:#0f1320;border:1px solid #1e2435;border-radius:10px}
+.hitem{display:flex;align-items:center;gap:8px;font-size:13px;color:#cbd5e1}
+.hitem input{accent-color:#60a5fa}
+.chart-wrap{position:relative;width:100%;height:420px;margin:12px 24px 12px 48px;padding-bottom:40px;overscroll-behavior:contain}
+canvas{width:100% !important;height:100% !important;touch-action:none}
+.axis-title{position:absolute;color:#cbd5e1;font-size:13px;font-weight:600;pointer-events:none;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.axis-title.x{bottom:28px;left:50%;transform:translateX(-50%)}
+.axis-title.y{top:50%;left:-50px;transform:translateY(-50%) rotate(-90deg)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid #273049;background:#0f1320;color:#cbd5e1;font-size:12px}
+.chip input{accent-color:#60a5fa}
+.footer-wrap{display:flex;justify-content:center;margin-top:1px}
+.footer{font-size:12px;color:#cbd5e1;text-align:center}
+.summary-bar{display:flex;gap:10px;flex-wrap:wrap;background:#0f1320;border:1px solid #1e2435;color:#e6e9ef;border-radius:10px;padding:8px 10px;margin-bottom:8px}
+.summary-bar .kv{display:flex;gap:6px;align-items:center;font-size:12px}
+.euclid-pill{background:#f97316;color:#fff;border:none}
+@media (max-width:1000px){.wrap{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <!-- Left panel -->
-    <div class="card">
-      <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:12px">
-        <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
-          <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo"
-               style="height:36px; width:auto; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.25)">
-        </a>
-        <h2 style="margin:0">Data &amp; Filters</h2>
-      </div>
-
-      <!-- Dataset switch -->
-      <div class="row" style="margin-bottom:8px; width:100%">
-        <label for="instrumentSelect">Dataset</label>
-        <select id="instrumentSelect">
-          <option value="ZN">ZN – 10Yr Treasury</option>
-          <option value="ES">ES – S&amp;P 500 Futures</option>
-        </select>
-      </div>
-
-      <div class="note" style="margin-top:2px">Files in view:</div>
-      <div id="fileChips" class="chips"><span class="pill">none</span></div>
-
-      <div class="grid-two" style="margin-top:10px">
-        <div>
-          <label>Min Hit</label>
-          <input id="minHit" type="number" min="0" max="1" step="0.01" value="0" />
-        </div>
-        <div>
-          <label>Min Coverage</label>
-          <input id="minCov" type="number" min="0" max="1" step="0.01" value="0" />
-        </div>
-      </div>
-
-      <div class="hr"></div>
-      <div class="stack">
-        <div class="row">
-          <label class="hitem"><input id="showAgg" type="checkbox" checked /> Show Aggregate (frontier/calib + summary)</label>
-        </div>
-        <div class="row">
-          <label class="hitem"><input id="showPerH" type="checkbox" checked /> Show Per-Horizon Points</label>
-        </div>
-        <div class="row" style="margin-top:6px">
-          <label class="hitem"><input type="radio" name="viewMode" value="class" checked> Classification (Hit / Coverage)</label>
-        </div>
-        <div class="row" style="margin-top:-6px">
-          <label class="hitem"><input type="radio" name="viewMode" value="reg"> Regression (MAE / MSE / R²)</label>
-        </div>
-        <div>
-          <label>Horizon Filters (default: all on)</label>
-          <div id="horizonList" class="hlist"></div>
-        </div>
-      </div>
-      
-      <div class="hr"></div>
-      <div class="note" style="margin-top:8px; line-height:1.6">
-        <strong>Event Type:</strong><br/>
-        📊 <span class="pill">Unemployment Release</span> ⏰ <span class="pill">08:30 ET</span> 🪟 <span class="pill">POST10m</span>
-        <div style="margin-top:6px">
-          <strong>Current run:</strong> both <em>training</em> and <em>OOS evaluation</em> use the
-          <u>first 10 minutes after the release</u> (08:30–08:40 ET).<br/>
-          📂 Training is based on a <em>rolling 12-month LOB dataset</em> from CME 
-          <span id="trainingLabel">10 Yr Treasury</span> futures.
-        </div>
-      </div>
-
-      <div class="hr"></div>
-      <div class="note" style="margin-top:12px; line-height:1.6">
-        <strong>Dataset Types:</strong><br/>
-        📊 <span style="color:#93c5fd">Summary</span>: Out-of-sample performance at each horizon (reporting/validation).<br/>
-        🚀 <span style="color:#22d3ee">Frontier</span>: Pareto-optimal trade-offs of hit vs. coverage, auto-selected from calibration.<br/>
-        🔧 <span style="color:#fbbf24">Calib</span>: Raw calibration runs across thresholds (τ, q, etc.) before frontier filtering.
-      </div>
-
-      <div class="hr"></div>
-      <div class="note" style="margin-top:14px; line-height:1.6">
-        <strong>Zoom & Reset:</strong><br/>
-        🖱️ Works only while your cursor is over the chart.<br/>
-        🔍 Scroll to zoom in/out.<br/>
-        ♻️ Use “Reset Zoom” to return to full view.
-      </div>
-        
+<div class="wrap">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px">
+      <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
+        <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo" style="height:36px;width:auto;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25)">
+      </a>
+      <h2 style="margin:0">Data &amp; Filters</h2>
     </div>
 
-    <!-- Chart panel -->
-    <div class="card" id="chartCard">
-      <div class="row" style="justify-content:space-between;align-items:baseline">
-        <h2 id="chartTitle">HIT–COVERAGE Frontier (Combined)</h2>
-        <div class="row" style="gap:8px">
-          <span class="pill">x: Coverage</span>
-          <span class="pill">y: Hit</span>
-        </div>
-      </div>
+    <div class="row" style="margin-bottom:8px;width:100%">
+      <label for="instrumentSelect">Dataset</label>
+      <select id="instrumentSelect">
+        <option value="ZN">ZN – 10Yr Treasury</option>
+        <option value="ES">ES – S&amp;P 500 Futures</option>
+      </select>
+    </div>
 
-      <!-- Inline summary -->
-      <div id="inlineSummary" class="summary-bar" style="display:none; justify-content:space-between; align-items:center">
-        <div style="display:flex; gap:10px; flex-wrap:wrap">
-          <span class="kv"><span class="pill">Pareto</span><strong id="sumPareto">–</strong></span>
-          <span class="kv"><span class="pill">Best Hit</span><strong id="sumBestHit">–</strong></span>
-          <span class="kv"><span class="pill">Best Cov</span><strong id="sumBestCov">–</strong></span>
-          <span class="kv"><span class="pill euclid-pill">Euclidean Best</span><strong id="sumEuclid">–</strong></span>
-        </div>
-        <div style="display:flex; gap:8px">
-          <button id="exportPNG" class="ghost">Export PNG</button>
-          <button id="resetZoom" class="ghost">Reset Zoom</button>
-        </div>
-      </div>
+    <div class="note" style="margin-top:2px">Files in view:</div>
+    <div id="fileChips" class="chips"><span class="pill">none</span></div>
 
-      <div class="chart-wrap">
-        <canvas id="chart"></canvas>
-        <div class="axis-title x">Coverage</div>
-        <div class="axis-title y">Hit</div>
-      </div>
+    <div class="grid-two" style="margin-top:10px">
+      <div><label>Min Hit</label><input id="minHit" type="number" min="0" max="1" step="0.01" value="0"/></div>
+      <div><label>Min Coverage</label><input id="minCov" type="number" min="0" max="1" step="0.01" value="0"/></div>
+    </div>
 
-      <div class="kpi" id="kpis" style="display:none"></div>
-      <div class="hr"></div>
-      <div class="note">
-        <div><strong>Legend:</strong> <span class="pill" style="border-color:#22d3ee;color:#22d3ee">Cyan squares</span> = Pareto • <span class="pill" style="border-color:#06b6d4;color:#06b6d4">Cyan line</span> = frontier • <span class="pill" style="border-color:#f97316;color:#f97316">Orange star</span> = closest to (1,1)</div>
-        <div style="margin-top:6px">
-          <strong>Definitions:</strong>
-          <em>Hit</em> = share of selected trades with correct direction (on events with |Δprice| ≥ τ).
-          <em>Coverage</em> = share of events with |Δprice| ≥ τ (τ comes from your config/calibration or the selected τ in the frontier rows).
-        </div>
+    <div class="hr"></div>
+    <div class="stack">
+      <div class="row"><label class="hitem"><input id="showAgg" type="checkbox" checked/> Show Aggregate (frontier/calib + summary)</label></div>
+      <div class="row"><label class="hitem"><input id="showPerH" type="checkbox" checked/> Show Per-Horizon Points</label></div>
+      <div class="row" style="margin-top:4px">
+        <label class="hitem"><input id="toggleRecs" type="checkbox" checked/> Show Recommendations</label>
+        <span id="recsBadge" style="display:none;font-size:12px;color:#fbbf24;margin-left:6px;">select one horizon to view tradable recs</span>
       </div>
+      <div class="row" style="margin-top:6px">
+        <label class="hitem"><input type="radio" name="viewMode" value="class" checked> Classification (Hit / Coverage)</label>
+      </div>
+      <div class="row" style="margin-top:-6px">
+        <label class="hitem"><input type="radio" name="viewMode" value="reg"> Regression (MAE / MSE / R²)</label>
+      </div>
+      <div>
+        <label>Horizon Filters (default: all on)</label>
+        <div id="horizonList" class="hlist"></div>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+    <div class="note" style="line-height:1.6">
+      <strong>Event Type:</strong><br/>
+      📊 <span class="pill">Unemployment Release</span>
+      ⏰ <span class="pill">08:30 ET</span>
+      🪟 <span class="pill">POST10m</span>
+      <div style="margin-top:6px">
+        <strong>Current run:</strong> training + OOS evaluation uses the
+        <u>first 10 minutes after the release</u> (08:30–08:40 ET).<br/>
+        📂 Training is based on a <em>rolling 12-month LOB dataset</em> from CME
+        <span id="trainingLabel">10 Yr Treasury</span> futures.
+      </div>
+    </div>
+
+    <div class="hr"></div>
+    <div class="note" style="line-height:1.6">
+      <strong>Dataset Types:</strong><br/>
+      📊 <span style="color:#93c5fd">Summary</span> • 🚀 <span style="color:#22d3ee">Frontier</span> • 🔧 <span style="color:#fbbf24">Calib</span> • 🟠 <span style="color:#f59e0b">Recommendations</span>
+    </div>
+
+    <div class="hr"></div>
+    <div class="note" style="line-height:1.6">
+      <strong>Zoom & Reset:</strong><br/>🖱️ Hover on chart • 🔍 Scroll to zoom • ♻️ “Reset Zoom”
     </div>
   </div>
 
-  <div class="footer-wrap">
-    <div class="footer">
-      © Copyright 2025 Quantum Yield. All rights reserved by Advanced Financial Engineering, LLC.
+  <div class="card" id="chartCard">
+    <div class="row" style="justify-content:space-between;align-items:baseline">
+      <h2 id="chartTitle">HIT–COVERAGE Frontier (Combined)</h2>
+      <div class="row" style="gap:8px"><span class="pill">x: Coverage</span><span class="pill">y: Hit</span></div>
+    </div>
+
+    <div id="inlineSummary" class="summary-bar" style="display:none;justify-content:space-between;align-items:center">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <span class="kv"><span class="pill">Pareto</span><strong id="sumPareto">–</strong></span>
+        <span class="kv"><span class="pill">Best Hit</span><strong id="sumBestHit">–</strong></span>
+        <span class="kv"><span class="pill">Best Cov</span><strong id="sumBestCov">–</strong></span>
+        <span class="kv"><span class="pill euclid-pill">Euclidean Best</span><strong id="sumEuclid">–</strong></span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button id="exportPNG" class="ghost">Export PNG</button>
+        <button id="resetZoom" class="ghost">Reset Zoom</button>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="chart"></canvas>
+      <div class="axis-title x">Coverage</div>
+      <div class="axis-title y">Hit</div>
+    </div>
+
+    <div class="kpi" id="kpis" style="display:none"></div>
+
+    <div class="hr"></div>
+    <div class="note">
+      <div><strong>Legend:</strong> <span class="pill" style="border-color:#22d3ee;color:#22d3ee">Cyan squares</span> = Pareto • <span class="pill" style="border-color:#06b6d4;color:#06b6d4">Cyan line</span> = frontier • <span class="pill" style="border-color:#f97316;color:#f97316">Orange star</span> = closest to (1,1)</div>
+      <!-- 🆕 Added explanatory footnotes -->
+      <div style="margin-top:10px; line-height:1.5; color:#9aa3b2; font-size:12px;">
+        <strong>Footnotes:</strong><br>
+        • <em>Aggregate Recommendations (RECO_AGG)</em> represent top-K Pareto-efficient parameter sets 
+        (q, τ, util) evaluated across <u>all horizons</u> — providing overall configuration guidance.<br>
+        • <em>Per-Horizon Recommendations (RECO_PERH)</em> isolate the most tradable candidates 
+        for a <u>specific horizon</u> (e.g., 250 ms or 500 ms), including regression metrics 
+        (MAE / MSE / R²) when available. These are the points highlighted in purple on the chart.
+      </div>
     </div>
   </div>
+</div>
 
-  <script>
-  const dom = id => document.getElementById(id);
+<div class="footer-wrap"><div class="footer">© 2025 Quantum Yield • Advanced Financial Engineering, LLC.</div></div>
 
-  // ---- Grouped S3 URLs for each instrument ----
-  const S3_SETS = {
-    ZN: {
-      summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary.csv",
-      frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier.csv",
-      calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib.csv"
-      // (optional) add regression URL here if you ever host one
-      // reg:   "https://hft-oos.s3.us-east-2.amazonaws.com/regression.csv"
-    },
-    ES: {
-      summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary_ES.csv",
-      frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier_ES.csv",
-      calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib_ES.csv"
-      // reg: "https://hft-oos.s3.us-east-2.amazonaws.com/regression_ES.csv"
-    }
-  };
+<script>
+const dom = id => document.getElementById(id);
 
-  const EXPECTED_ROLES = ["summary","frontier","calib"];
-  const state = { files: [] }; // fileObj = { name, selected, aggPts[], hmap(Map<h,pts[]>), horizons:Set<string> }
-  let chart;
-  let currentInstrument = 'ZN';
-
-
-  // ---------- helpers ----------
-  function resetAll(){
-    state.files = [];
-    dom('horizonList').innerHTML = '';
-    renderFileChips();
-    updateTitle();
-    if(chart){ chart.destroy(); chart = null; }
-    dom('kpis').style.display = 'none';
-    dom('kpis').innerHTML = '';
-    dom('inlineSummary').style.display = 'none';
-    dom('sumPareto').textContent = '–';
-    dom('sumBestHit').textContent = '–';
-    dom('sumBestCov').textContent = '–';
-    dom('sumEuclid').textContent = '–';
+// ---- S3 groups ----
+const S3_SETS = {
+  ZN: {
+    summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary.csv",
+    frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier.csv",
+    calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib.csv"
+  },
+  ES: {
+    summary:  "https://hft-oos.s3.us-east-2.amazonaws.com/summary_ES.csv",
+    frontier: "https://hft-oos.s3.us-east-2.amazonaws.com/frontier_ES.csv",
+    calib:    "https://hft-oos.s3.us-east-2.amazonaws.com/calib_ES.csv"
   }
+};
 
-  function updateTitle(){
-    const t = dom('chartTitle');
-    const selected = state.files.filter(f=>f.selected);
-    const sym = currentInstrument || 'ZN';
-    if(selected.length === 1){
-      t.textContent = `HIT–COVERAGE Frontier • ${sym} (${selected[0].name})`;
-    } else if(selected.length > 1){
-      t.textContent = `HIT–COVERAGE Frontier • ${sym} (multiple files)`;
-    } else {
-      t.textContent = `HIT–COVERAGE Frontier • ${sym}`;
-    }
-  }
+const EXPECTED_ROLES = ["summary","frontier","calib"];
+const state = { files: [] }; // fileObj = { name, selected, aggPts, hmap(Map<h,pts[]>), horizons:Set, recoAgg[], recoPerH[] }
+let chart;
+let currentInstrument = 'ZN';
 
-  function renderFileChips(){
-    const wrap = dom('fileChips');
-    if(!state.files.length){ wrap.innerHTML = '<span class="pill">none</span>'; return; }
-    wrap.innerHTML = state.files.map((f,i)=>`
-      <label class="chip" title="${f.name}">
-        <input type="checkbox" data-idx="${i}" ${f.selected?'checked':''} />
-        ${f.name}
-      </label>
-    `).join('');
-    wrap.querySelectorAll('input[type="checkbox"]').forEach(chk=>{
-      chk.addEventListener('change', (e)=>{
-        const idx = +e.target.getAttribute('data-idx');
-        state.files[idx].selected = e.target.checked;
-        rebuildHorizonList();
-        updateTitle();
-        renderCombined();
-      });
+// ---------- helpers ----------
+function resetAll(){
+  state.files = [];
+  dom('horizonList').innerHTML = '';
+  renderFileChips();
+  updateTitle();
+  if(chart){ chart.destroy(); chart = null; }
+  dom('kpis').style.display = 'none';
+  dom('kpis').innerHTML = '';
+  dom('inlineSummary').style.display = 'none';
+  dom('sumPareto').textContent = dom('sumBestHit').textContent = dom('sumBestCov').textContent = dom('sumEuclid').textContent = '–';
+}
+
+function updateTitle(){
+  const t = dom('chartTitle');
+  const selected = state.files.filter(f=>f.selected);
+  const sym = currentInstrument || 'ZN';
+  if(selected.length === 1) t.textContent = `HIT–COVERAGE Frontier • ${sym} (${selected[0].name})`;
+  else if(selected.length > 1) t.textContent = `HIT–COVERAGE Frontier • ${sym} (multiple files)`;
+  else t.textContent = `HIT–COVERAGE Frontier • ${sym}`;
+}
+
+function renderFileChips(){
+  const wrap = dom('fileChips');
+  if(!state.files.length){ wrap.innerHTML = '<span class="pill">none</span>'; return; }
+  wrap.innerHTML = state.files.map((f,i)=>`
+    <label class="chip" title="${f.name}">
+      <input type="checkbox" data-idx="${i}" ${f.selected?'checked':''}/>
+      ${f.name}
+    </label>`).join('');
+  wrap.querySelectorAll('input[type="checkbox"]').forEach(chk=>{
+    chk.addEventListener('change', (e)=>{
+      const idx = +e.target.getAttribute('data-idx');
+      state.files[idx].selected = e.target.checked;
+      rebuildHorizonList();
+      updateTitle();
+      renderCombined();
     });
-  }
+  });
+}
 
-  function autoDetectType(cols){
-    const hasSummaryCols = cols.some(c => c.startsWith('HSEL_HIT_THR_'));
-    if (hasSummaryCols) return 'summary';
-    if (cols.includes('hit') && cols.includes('cov')) return (cols.includes('mode') ? 'frontier' : 'calib');
-    return 'unknown';
-  }
+function autoDetectType(cols){
+  const hasSummaryCols = cols.some(c => c.startsWith('HSEL_HIT_THR_'));
+  if (hasSummaryCols) return 'summary';
+  if (cols.includes('hit') && cols.includes('cov')) return (cols.includes('mode') ? 'frontier' : 'calib');
+  return 'unknown';
+}
 
-  function paretoFront(points){
-    if(!points.length) return [];
-    const sorted=[...points].sort((a,b)=>b.x===a.x?b.y-a.y:b.x-a.x);
-    const out=[]; let bestY=-Infinity, tol=1e-12;
-    for(const p of sorted){ if(p.y>=bestY-tol){ out.push(p); bestY=Math.max(bestY,p.y); } }
-    out.sort((a,b)=>a.x===b.x?a.y-b.y:a.x-b.x);
-    return out;
+function paretoFront(points){
+  if(!points.length) return [];
+  const sorted=[...points].sort((a,b)=>b.x===a.x?b.y-a.y:b.x-a.x);
+  const out=[]; let bestY=-Infinity, tol=1e-12;
+  for(const p of sorted){ if(p.y>=bestY-tol){ out.push(p); bestY=Math.max(bestY,p.y); } }
+  out.sort((a,b)=>a.x===b.x?a.y-b.y:a.x-b.x);
+  return out;
+}
+function euclidBest(frontier){
+  if (!frontier.length) return null;
+  let best=null,d=Infinity;
+  for (const p of frontier){
+    const dd = Math.hypot(1 - p.x, 1 - p.y);
+    if (dd < d){ d = dd; best = p; }
   }
-  function euclidBest(frontier){
-    if (!frontier.length) return null;
-    let best = null, d = Infinity;
-    for (const p of frontier){
-      const dd = Math.hypot(1 - p.x, 1 - p.y);
-      if (dd < d){
-        d = dd;
-        best = p;        // set best inside the same branch
-      }
+  return best;
+}
+function filterBasic(points){
+  const minHit=parseFloat(dom('minHit').value||'0');
+  const minCov=parseFloat(dom('minCov').value||'0');
+  return points.filter(p => (p.y>=minHit && p.x>=minCov));
+}
+
+// numeric pick
+function pickFirstNum(row, keys){ for (const k of keys){ if (k in row && Number.isFinite(+row[k])) return +row[k]; } return undefined; }
+
+// scale normalizer (bps→dec, etc.)
+function normalizeRegression(meta){
+  if (Number.isFinite(meta.mae) && Math.abs(meta.mae) > 100) meta.mae /= 1e4;
+  if (Number.isFinite(meta.mse) && Math.abs(meta.mse) > 1e6) meta.mse /= 1e8;
+  return meta;
+}
+
+// ---------- parsing ----------
+function parseSummary(rows){
+  const cols = Object.keys(rows[0] || {});
+  const hitCols = cols.filter(c => c.startsWith('HSEL_HIT_THR_'));
+  const horizons = hitCols.map(h => h.replace('HSEL_HIT_THR_',''));
+  const covCol = (h) => 'HSEL_COVERAGE_' + h;
+
+  const aggFromSummary = [];
+  const hmap = new Map();
+
+  const hasRunMAE = cols.includes('HSEL_MAE');
+  const hasRunMSE = cols.includes('HSEL_MSE');
+  const hasRunR2  = cols.includes('HSEL_R2');
+
+  for (const r of rows){
+    for (const h of horizons){
+      const hit = +r[`HSEL_HIT_THR_${h}`];
+      const cov = +r[covCol(h)];
+      if (!Number.isFinite(hit) || !Number.isFinite(cov)) continue;
+
+      const mae = pickFirstNum(r, [`MAE_${h}`,`MAE_${h.toLowerCase()}`,`MAE_${h}ms`,`HSEL_MAE_${h}`,`HSEL_MAE_${h}ms`]);
+      const mse = pickFirstNum(r, [`MSE_${h}`,`MSE_${h.toLowerCase()}`,`MSE_${h}ms`,`HSEL_MSE_${h}`,`HSEL_MSE_${h}ms`]);
+      const r2  = pickFirstNum(r, [`R2_${h}`,`R2_${h.toLowerCase()}`,`R2_${h}ms`,`HSEL_R2_${h}`,`HSEL_R2_${h}ms`]);
+
+      const maeFinal = (mae !== undefined) ? mae : (hasRunMAE ? +r.HSEL_MAE : undefined);
+      const mseFinal = (mse !== undefined) ? mse : (hasRunMSE ? +r.HSEL_MSE : undefined);
+      const r2Final  = (r2  !== undefined) ? r2  : (hasRunR2  ? +r.HSEL_R2  : undefined);
+
+      const meta = normalizeRegression({ horizon:h, mae:maeFinal, mse:mseFinal, r2:r2Final, source:'summary' });
+      const pt = { x: cov, y: hit, label:`summary • ${h}`, meta };
+
+      if (!hmap.has(h)) hmap.set(h, []);
+      hmap.get(h).push(pt);
+      aggFromSummary.push({ ...pt });
     }
-    return best;
   }
-  function filterBasic(points){
-    const minHit=parseFloat(dom('minHit').value||'0');
-    const minCov=parseFloat(dom('minCov').value||'0');
-    return points.filter(p => (p.y>=minHit && p.x>=minCov));
-  }
+  return { horizons: [...new Set(horizons)], aggFromSummary, hmap };
+}
 
-  // pick first numeric among keys
-  function pickFirstNum(row, keys) {
-    for (const k of keys) {
-      if (k in row && Number.isFinite(+row[k])) return +row[k];
-    }
-    return undefined;
-  }
+// FIXED: frontier/calib parser with (1) sectioned recs, (2) active-h detection, (3) r2 fallback
+function parseFrontierLike(rows){
+  if (!rows.length) return { aggPts: [], hmap: new Map(), horizons: [], recoAgg: [], recoPerH: [] };
 
-  // ---------- NEW: regression helpers ----------
-  function normalizeHorizonToMs(h){
-    if (h == null) return undefined;
-    const s = String(h).trim().toLowerCase();
-    if (/^\d+ms$/.test(s)) return parseInt(s,10);
-    if (/^\d+(\.\d+)?m(in)?$/.test(s)) return Math.round(parseFloat(s) * 60_000);
-    if (/^\d+(\.\d+)?s(ec)?$/.test(s)) return Math.round(parseFloat(s) * 1_000);
-    if (/^\d+$/.test(s)) {
-      // Bare number: assume milliseconds if big, else seconds (>= 60 means seconds -> ms)
-      const n = parseInt(s,10);
-      if (n >= 10_000) return n;              // looks like ms
-      if (n >= 60) return n * 1_000;          // seconds
-      // if it's e.g. "5" we assume minutes (5m) since your horizons are multi-minute
-      return n * 60_000;
-    }
-    // patterns like "300000" inside a label "h=300000ms"
-    const m = s.match(/(\d+)\s*ms/);
-    if (m) return parseInt(m[1],10);
-    const m2 = s.match(/(\d+)\s*s(ec)?/);
-    if (m2) return parseInt(m2[1],10) * 1000;
-    const m3 = s.match(/(\d+)\s*m(in)?/);
-    if (m3) return parseInt(m3[1],10) * 60_000;
-    return undefined;
-  }
+  const cols = Object.keys(rows[0] || {});
+  const firstCol = cols[0];
+  const aggPts = [];
+  const hmap = new Map();
+  const horizons = new Set();
+  const recoAgg = [];
+  const recoPerH = [];
+  let section = "NORMAL";
 
-  // ---- parse: frontier & calib (attach regression to agg & per-h points)
-  // helper: pick first numeric among keys
-  function pickFirstNum(row, keys) {
-    for (const k of keys) {
-      if (k in row && Number.isFinite(+row[k])) return +row[k];
-    }
-    return undefined;
+  const hitHCols = cols.filter(c => /^hit_\d+ms$/i.test(c));
+  const hNums = [...new Set(hitHCols.map(c => c.match(/^hit_(\d+)ms$/i)[1]))]
+    .sort((a,b)=>parseInt(a)-parseInt(b));
+
+  function pushPerH(h, cov, hit, metaBase, row, isReco){
+    if (!Number.isFinite(cov) || !Number.isFinite(hit)) return;
+    const hh = `${h}ms`;
+
+    const mae_h = pickFirstNum(row, [`mae_${h}ms`,`MAE_${h}ms`,`mae_${h}`,`MAE_${h}`]);
+    const mse_h = pickFirstNum(row, [`mse_${h}ms`,`MSE_${h}ms`,`mse_${h}`,`MSE_${h}`]);
+    const r2_h  = pickFirstNum(row, [`r2_${h}ms`,`R2_${h}ms`,`r2_${h}`,`R2_${h}`,`r2`,`R2`]);
+
+    let meta = normalizeRegression({
+      ...metaBase, horizon: hh, source:'frontier',
+      ...(mae_h !== undefined ? { mae: mae_h } : {}),
+      ...(mse_h !== undefined ? { mse: mse_h } : {}),
+      ...(r2_h  !== undefined ? { r2 : r2_h }  : {})
+    });
+
+    const labelBits = [isReco ? 'RECO_PERH' : 'h point', `h=${hh}`];
+    if (meta.q   !== undefined) labelBits.push(`q=${meta.q}`);
+    if (meta.tau !== undefined) labelBits.push(`tau=${meta.tau}`);
+    if (Number.isFinite(meta.util)) labelBits.push(`util=${meta.util.toFixed(3)}`);
+
+    const pt = { x: cov, y: hit, label: labelBits.join(' • '), meta };
+    if (!hmap.has(hh)) hmap.set(hh, []);
+    hmap.get(hh).push(pt);
+    horizons.add(hh);
+    if (isReco) recoPerH.push(pt);
   }
 
-  // --- UPDATED: frontier/calib parser with per-h regression only
-  function parseFrontierLike(rows){
-    if(!rows.length) return { aggPts: [], hmap: new Map(), horizons: [], recoPts: [] };
+  for (const r of rows){
+    if (firstCol && r[firstCol] === 'RECOMMENDATIONS_TOPK_AGG')   { section='RECO_AGG';   continue; }
+    if (firstCol && r[firstCol] === 'RECOMMENDATIONS_PER_HORIZON'){ section='RECO_PERH'; continue; }
 
-    const cols = Object.keys(rows[0] || {});
-    const firstCol = cols[0];
-    const aggPts = [];
-    const recoPts = [];
-    const hmap = new Map();
-    const horizons = new Set();
-    let inReco = false;
+    const metaBase = {
+      q:(r.q ?? r.quantile),
+      tau:r.tau,
+      util:(r.util !== undefined ? +r.util : NaN),
+      mode:r.mode,
+      robust_bins:(r.robust_bins!==undefined? +r.robust_bins : undefined)
+    };
 
-    // detect available horizons from per-h hit columns
-    const hitHCols = cols.filter(c => /^hit_\d+ms$/i.test(c));
-    const hNums = [...new Set(hitHCols.map(c => c.match(/^hit_(\d+)ms$/i)[1]))]
-      .sort((a,b)=>parseInt(a)-parseInt(b));
-
-    function pushPerH(h, cov, hit, metaBase, row, isReco){
-      if(!Number.isFinite(cov) || !Number.isFinite(hit)) return;
-      const hh = `${h}ms`;
-
-      // Use per-h metrics if present
-      const mae_h = pickFirstNum(row, [`mae_${h}ms`,`MAE_${h}ms`,`mae_${h}`,`MAE_${h}`]);
-      const mse_h = pickFirstNum(row, [`mse_${h}ms`,`MSE_${h}ms`,`mse_${h}`,`MSE_${h}`]);
-      const r2_h  = pickFirstNum(row, [`r2_${h}ms`,`R2_${h}ms`,`r2_${h}`,`R2_${h}`]);
-
-      let meta = {
-        ...metaBase,
-        horizon: hh,
-        source: 'frontier',              // <— mark source
-        ...(mae_h !== undefined ? { mae: mae_h } : {}),
-        ...(mse_h !== undefined ? { mse: mse_h } : {}),
-        ...(r2_h  !== undefined ? { r2 : r2_h }  : {}),
-        reco: isReco
+    // aggregate point (normal rows or agg-recs have x=Cov, y=Hit)
+    const x = +r.cov, y = +r.hit;
+    if (Number.isFinite(x) && Number.isFinite(y)){
+      const obj = {
+        x, y,
+        label:(section==='RECO_AGG'?'RECO_AGG • ':'')+`q=${metaBase.q}, tau=${metaBase.tau}`+(Number.isFinite(metaBase.util)?`, util=${metaBase.util.toFixed(3)}`:''),
+        meta:{...metaBase}
       };
-
-      // <— normalize bps / bps^2 to decimals so tooltips pass sanity checks
-      meta = normalizeRegression(meta);
-
-      const labelBits = [`h=${hh}`];
-      if (meta.q !== undefined)   labelBits.push(`q=${meta.q}`);
-      if (meta.tau !== undefined) labelBits.push(`tau=${meta.tau}`);
-      if (Number.isFinite(meta.util)) labelBits.push(`util=${meta.util.toFixed(3)}`);
-      if (isReco) labelBits.unshift('RECO');
-
-      const pt = { x: cov, y: hit, label: labelBits.join(' • '), meta };
-      if(!hmap.has(hh)) hmap.set(hh, []);
-      hmap.get(hh).push(pt);
-      horizons.add(hh);
+      (section==='RECO_AGG'?recoAgg:aggPts).push(obj);
     }
 
-    for(const r of rows){
-      if (firstCol && r[firstCol] === 'RECOMMENDATIONS_TOPK') { inReco = true; continue; }
-
-      // aggregate point (classification-only metadata)
-      const x = +r.cov, y = +r.hit;
-      if(Number.isFinite(x) && Number.isFinite(y)){
-        const q   = (r.q ?? r.quantile);
-        const tau = r.tau;
-        const util = (r.util !== undefined ? +r.util : NaN);
-        const metaAgg = { q, tau, util, mode: r.mode, robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined) };
-
-        const obj = {
-          x, y,
-          label: (inReco ? 'RECO • ' : '') + `q=${q}, tau=${tau}${Number.isFinite(util)?`, util=${util.toFixed(3)}`:''}`,
-          meta: metaAgg
-        };
-        (inReco ? recoPts : aggPts).push(obj);
+    if (section === 'RECO_PERH'){
+      // find the single active horizon in this rec row
+      let activeH=null;
+      for (const h of hNums){
+        const hitH = +r[`hit_${h}ms`];
+        const covH = +r[`cov_${h}ms`];
+        if (Number.isFinite(hitH) && Number.isFinite(covH)){ activeH=h; break; }
       }
-
-      const metaBase = {
-        q: (r.q ?? r.quantile),
-        tau: r.tau,
-        util: (r.util !== undefined ? +r.util : NaN),
-        mode: r.mode,
-        robust_bins: (r.robust_bins!==undefined? +r.robust_bins : undefined)
-      };
-      for(const h of hNums){
-        const hit = +r[`hit_${h}ms`];
-        const cov = +r[`cov_${h}ms`];
-        pushPerH(h, cov, hit, metaBase, r, inReco);
+      if (activeH!=null){
+        const hitH = +r[`hit_${activeH}ms`];
+        const covH = +r[`cov_${activeH}ms`];
+        pushPerH(activeH, covH, hitH, metaBase, r, true);
+      }
+    } else {
+      // normal & agg sections: push all per-h points available
+      for (const h of hNums){
+        const hitH = +r[`hit_${h}ms`];
+        const covH = +r[`cov_${h}ms`];
+        pushPerH(h, covH, hitH, metaBase, r, false);
       }
     }
-
-    return { aggPts, hmap, horizons: [...horizons], recoPts };
   }
 
-  // ---- parse: summary (per-horizon points + regression with fallbacks)
-  // Heuristic normalizer: raw-price → dec units
-  function normalizeRegression(meta){
-    // Only scale if values are clearly too large to be in dec units
-    if (Number.isFinite(meta.mae) && Math.abs(meta.mae) > 100) meta.mae /= 1e4; // ~bps→dec
-    if (Number.isFinite(meta.mse) && Math.abs(meta.mse) > 1e6) meta.mse /= 1e8; // (~bps^2)→dec^2
-    // R² is unitless — leave as-is
-    return meta;
-  }
+  return { aggPts, hmap, horizons:[...horizons], recoAgg, recoPerH };
+}
 
-  // ---- parse: summary (per-horizon points + regression with fallbacks)
-  function parseSummary(rows){
-    const cols = Object.keys(rows[0] || {});
-    const hitCols = cols.filter(c => c.startsWith('HSEL_HIT_THR_'));
-    const horizons = hitCols.map(h => h.replace('HSEL_HIT_THR_',''));
-    const covCol = (h) => 'HSEL_COVERAGE_' + h;
+function selectedFiles(){ return state.files.filter(f=>f.selected); }
 
-    const aggFromSummary = [];
-    const hmap = new Map();
+function rebuildHorizonList(){
+  const box = dom('horizonList');
+  const hset = new Set();
+  selectedFiles().forEach(f => f.horizons.forEach(h => hset.add(h)));
+  const hs = Array.from(hset).sort((a,b)=>+a.replace('ms','') - +b.replace('ms',''));
+  box.innerHTML = hs.map(h=>`
+    <label class="hitem"><input type="checkbox" class="hchk" value="${h}" checked/> ${h}</label>`).join('');
+  box.querySelectorAll('.hchk').forEach(el => el.addEventListener('change', renderCombined));
+  applyPerHEnabled(dom('showPerH').checked);
+}
+function selectedHorizons(){
+  const els = dom('horizonList').querySelectorAll('.hchk');
+  const on = []; els.forEach(e=>{ if(e.checked) on.push(e.value); });
+  return new Set(on);
+}
+function applyPerHEnabled(enabled){
+  const chks = dom('horizonList').querySelectorAll('.hchk');
+  chks.forEach(c => { c.disabled = !enabled; if(enabled){ c.checked = true; } else { c.checked = false; } });
+}
 
-    const hasRunMAE = cols.includes('HSEL_MAE');
-    const hasRunMSE = cols.includes('HSEL_MSE');
-    const hasRunR2  = cols.includes('HSEL_R2');
+function setZoomEnabled(ch,on){
+  const z = ch.options.plugins.zoom; if(!z) return;
+  z.pan.enabled=!!on; z.zoom.wheel.enabled=!!on; z.zoom.pinch.enabled=!!on; ch.update('none');
+}
 
-    const runTagKeys = ['date','model_tag','note','CONF_Q','DIR_THR_BPS','thr_bps'];
-    const hasRunTag = (r,k) => Object.prototype.hasOwnProperty.call(r,k);
-
-    for (const r of rows){
-      for (const h of horizons){
-        const hit = +r[`HSEL_HIT_THR_${h}`];
-        const cov = +r[covCol(h)];
-        if (!Number.isFinite(hit) || !Number.isFinite(cov)) continue;
-
-        // per-h regression candidates
-        const mae = pickFirstNum(r, [`MAE_${h}`, `MAE_${h.toLowerCase()}`, `MAE_${h}ms`, `HSEL_MAE_${h}`, `HSEL_MAE_${h}ms`]);
-        const mse = pickFirstNum(r, [`MSE_${h}`, `MSE_${h.toLowerCase()}`, `MSE_${h}ms`, `HSEL_MSE_${h}`, `HSEL_MSE_${h}ms`]);
-        const r2  = pickFirstNum(r, [`R2_${h}`, `R2_${h.toLowerCase()}`, `R2_${h}ms`, `HSEL_R2_${h}`, `HSEL_R2_${h}ms`]);
-
-        const maeFinal = (mae !== undefined) ? mae : (hasRunMAE ? +r.HSEL_MAE : undefined);
-        const mseFinal = (mse !== undefined) ? mse : (hasRunMSE ? +r.HSEL_MSE : undefined);
-        const r2Final  = (r2  !== undefined) ? r2  : (hasRunR2  ? +r.HSEL_R2  : undefined);
-
-        // build + normalize meta
-        const meta = normalizeRegression({
-          horizon: h,
-          mae: maeFinal,
-          mse: mseFinal,
-          r2 : r2Final,
-          source: 'summary'
-        });
-        for (const k of runTagKeys) if (hasRunTag(r,k)) meta[k] = r[k];
-
-        const pt = {
-          x: cov, y: hit,
-          label: `summary • ${h}${meta.thr_bps ? ` | thr=${meta.thr_bps}` : ''}`,
-          meta
-        };
-
-        if (!hmap.has(h)) hmap.set(h, []);
-        hmap.get(h).push(pt);
-        aggFromSummary.push({ ...pt, label: pt.label });
-      }
-    }
-    return { horizons: [...new Set(horizons)], aggFromSummary, hmap };
-  }
-
-  function selectedFiles(){ return state.files.filter(f=>f.selected); }
-
-  function rebuildHorizonList(){
-    const box = dom('horizonList');
-    const hset = new Set();
-    selectedFiles().forEach(f => f.horizons.forEach(h => hset.add(h)));
-    const hs = Array.from(hset).sort((a,b)=>+a.replace('ms','') - +b.replace('ms',''));
-    box.innerHTML = hs.map(h=>`
-      <label class="hitem">
-        <input type="checkbox" class="hchk" value="${h}" checked />
-        ${h}
-      </label>`).join('');
-    box.querySelectorAll('.hchk').forEach(el => el.addEventListener('change', renderCombined));
-    applyPerHEnabled(dom('showPerH').checked);
-  }
-  function selectedHorizons(){
-    const els = dom('horizonList').querySelectorAll('.hchk');
-    const on = []; els.forEach(e=>{ if(e.checked) on.push(e.value); });
-    return new Set(on);
-  }
-  function applyPerHEnabled(enabled){
-    const chks = dom('horizonList').querySelectorAll('.hchk');
-    chks.forEach(c => { c.disabled = !enabled; if(enabled){ c.checked = true; } else { c.checked = false; } });
-  }
-
-  function setZoomEnabled(ch, on){
-    const z = ch.options.plugins.zoom;
-    if(!z) return;
-    z.pan.enabled = !!on;
-    z.zoom.wheel.enabled = !!on;
-    z.zoom.pinch.enabled = !!on;
-    ch.update('none');
-  }
-
-  function baseChartOptions(){
-    return {
-      responsive:true, maintainAspectRatio:false, parsing:{xAxisKey:'x', yAxisKey:'y'}, animation:false,
-      layout:{padding:{left:8,right:46,top:8,bottom:28}},
-      scales:{
-        x:{type:'linear', min:0, max:1, grid:{color:'#273049'},
-           ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}},
-        y:{type:'linear', min:0, max:1, grid:{color:'#273049'},
-           ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}}
-      },
-      plugins:{
-        legend:{labels:{color:'#e2e8f0',font:{size:12}}},
-        tooltip:{callbacks:{
-          title:items=>items?.[0]?.raw?.label||'Point',
-          label: ctx => {
-            const raw = ctx.raw || {};
-            const m = raw.meta || {};
-            const lines = [];
-            const viewMode = document.querySelector('input[name="viewMode"]:checked')?.value || 'class';
-
-            if (viewMode === 'class') {
-              lines.push(`Coverage: ${(ctx.parsed.x * 100).toFixed(2)}%`);
-              lines.push(`Hit: ${(ctx.parsed.y * 100).toFixed(2)}%`);
-              if (m.horizon) lines.push(`Horizon: ${m.horizon}`);
-              if (m.q !== undefined) lines.push(`q: ${m.q}`);
-              if (m.tau !== undefined) lines.push(`tau: ${m.tau}`);
-              if (typeof m.util === 'number' && !isNaN(m.util)) lines.push(`util: ${m.util.toFixed(3)}`);
-              if (m.date) lines.push(`date: ${m.date}`);
-              if (m.model_tag) lines.push(`model: ${m.model_tag}`);
-              return lines;
-            }
-
-            // Regression view: show only sane per-h metrics
-            const mae = (typeof m.mae === 'number' ? m.mae : undefined);
-            const mse = (typeof m.mse === 'number' ? m.mse : undefined);
-            const r2  = (typeof m.r2  === 'number' ? m.r2  : undefined);
-
-            const sane = (v)=> Number.isFinite(v) && Math.abs(v) < 1e3; // guard against huge, wrong-scale numbers
-            if (sane(mae) && sane(mse) && Number.isFinite(r2)) {
-              lines.push(`MAE: ${mae.toFixed(4)}`);
-              lines.push(`MSE: ${mse.toFixed(4)}`);
-              lines.push(`R²: ${r2.toFixed(4)}`);
-            } else {
-              lines.push('Regression metrics unavailable');
-            }
-            if (m.horizon) lines.push(`Horizon: ${m.horizon}`);
-            if (m.q !== undefined) lines.push(`q: ${m.q}`);
-            if (m.tau !== undefined) lines.push(`tau: ${m.tau}`);
+function baseChartOptions(){
+  return {
+    responsive:true, maintainAspectRatio:false, parsing:{xAxisKey:'x', yAxisKey:'y'}, animation:false,
+    layout:{padding:{left:8,right:46,top:8,bottom:28}},
+    scales:{
+      x:{type:'linear',min:0,max:1,grid:{color:'#273049'},ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}},
+      y:{type:'linear',min:0,max:1,grid:{color:'#273049'},ticks:{color:'#cbd5e1',font:{size:12},padding:6,callback:v=>(v*100).toFixed(0)+'%'}}
+    },
+    plugins:{
+      legend:{labels:{color:'#e2e8f0',font:{size:12}}},
+      tooltip:{callbacks:{
+        title:items=>items?.[0]?.raw?.label||'Point',
+        label: ctx=>{
+          const raw=ctx.raw||{}; const m=raw.meta||{}; const lines=[];
+          const viewMode=document.querySelector('input[name="viewMode"]:checked')?.value||'class';
+          if(viewMode==='class'){
+            lines.push(`Coverage: ${(ctx.parsed.x*100).toFixed(2)}%`);
+            lines.push(`Hit: ${(ctx.parsed.y*100).toFixed(2)}%`);
+            if(m.horizon) lines.push(`Horizon: ${m.horizon}`);
+            if(m.q!==undefined) lines.push(`q: ${m.q}`);
+            if(m.tau!==undefined) lines.push(`tau: ${m.tau}`);
+            if(typeof m.util==='number'&&!isNaN(m.util)) lines.push(`util: ${m.util.toFixed(3)}`);
             return lines;
           }
-        }},
-        zoom:{
-          limits:{ x:{min:0, max:1}, y:{min:0, max:1} },
-          pan:{ enabled:false, mode:'xy' },
-          zoom:{
-            wheel:{ enabled:false, speed:0.1 },
-            pinch:{ enabled:false },
-            mode:'xy'
+          const mae=(typeof m.mae==='number'?m.mae:undefined);
+          const mse=(typeof m.mse==='number'?m.mse:undefined);
+          const r2 =(typeof m.r2 ==='number'?m.r2 :undefined);
+          const sane=v=>Number.isFinite(v)&&Math.abs(v)<1e3;
+          if(sane(mae)&&sane(mse)&&Number.isFinite(r2)){
+            lines.push(`MAE: ${mae.toFixed(4)}`);
+            lines.push(`MSE: ${mse.toFixed(4)}`);
+            lines.push(`R²: ${r2.toFixed(4)}`);
+          }else{
+            lines.push('Regression metrics unavailable');
           }
+          if(m.horizon) lines.push(`Horizon: ${m.horizon}`);
+          if(m.q!==undefined) lines.push(`q: ${m.q}`);
+          if(m.tau!==undefined) lines.push(`tau: ${m.tau}`);
+          return lines;
         }
+      }},
+      zoom:{limits:{x:{min:0,max:1},y:{min:0,max:1}},pan:{enabled:false,mode:'xy'},zoom:{wheel:{enabled:false,speed:0.1},pinch:{enabled:false},mode:'xy'}}
+    }
+  };
+}
+
+function updateInlineSummary(frontierPoints, allPoints){
+  if(!allPoints||!allPoints.length){ dom('inlineSummary').style.display='none'; return; }
+  const paretoCount=frontierPoints.length;
+  const bestHit=allPoints.reduce((m,p)=>Math.max(m,p.y),0);
+  const bestCov=allPoints.reduce((m,p)=>Math.max(m,p.x),0);
+  const best=euclidBest(frontierPoints);
+  dom('sumPareto').textContent=String(paretoCount||0);
+  dom('sumBestHit').textContent=(bestHit*100).toFixed(1)+'%';
+  dom('sumBestCov').textContent=(bestCov*100).toFixed(1)+'%';
+  dom('sumEuclid').textContent=best?`(Hit ${(best.y*100).toFixed(1)}%, Cov ${(best.x*100).toFixed(1)}%)`:'–';
+  dom('inlineSummary').style.display='flex';
+}
+
+function renderCombined(){
+  const keepAgg  = dom('showAgg').checked;
+  const keepPerH = dom('showPerH').checked;
+  const showRecs = dom('toggleRecs').checked;
+  const hSel = selectedHorizons();
+
+  const EPS = 1e-6;
+  const clamp01 = v => Math.min(1 - EPS, Math.max(EPS, v));
+
+  let pts = [];
+  let recoAgg = [];
+  let recoPerH = [];
+
+  for (const f of selectedFiles()){
+    if (keepAgg){
+      pts.push(...(f.aggPts||[])); // normal agg points
+    }
+    if (keepPerH){
+      for (const [h, arr] of f.hmap.entries()){
+        if (hSel.has(h)) pts.push(...arr);
       }
-    };
-  }
-
-  function updateInlineSummary(frontierPoints, allPoints){
-    if(!allPoints || !allPoints.length){ dom('inlineSummary').style.display='none'; return; }
-    const paretoCount = frontierPoints.length;
-    const bestHit = allPoints.reduce((m,p)=>Math.max(m,p.y), 0);
-    const bestCov = allPoints.reduce((m,p)=>Math.max(m,p.x), 0);
-    const best = euclidBest(frontierPoints);
-
-    dom('sumPareto').textContent = String(paretoCount || 0);
-    dom('sumBestHit').textContent = (bestHit*100).toFixed(1) + '%';
-    dom('sumBestCov').textContent = (bestCov*100).toFixed(1) + '%';
-    dom('sumEuclid').textContent = best ? `(Hit ${(best.y*100).toFixed(1)}%, Cov ${(best.x*100).toFixed(1)}%)` : '–';
-    dom('inlineSummary').style.display = 'flex';
-  }
-
-  function renderCombined(){
-    const keepAgg  = dom('showAgg').checked;
-    const keepPerH = dom('showPerH').checked;
-    const hSel = selectedHorizons();
-
-    const EPS = 1e-6;
-    const clamp01 = v => Math.min(1 - EPS, Math.max(EPS, v));
-
-    let pts = [];
-    let reco = [];
-
-    for (const f of selectedFiles()){
-      if (keepAgg){
-        pts.push(...(f.aggPts || []));
-        if (f.recoPts?.length) reco.push(...f.recoPts);
-      }
-      if (keepPerH){
-        for (const [h, arr] of f.hmap.entries()){
-          if (hSel.has(h)) pts.push(...arr);
+    }
+    // Recommendations are independent of keepAgg/keepPerH visibility
+    if (showRecs){
+      // agg recs shown always
+      if (f.recoAgg?.length) recoAgg.push(...f.recoAgg);
+      // per-h recs filtered by horizon selection
+      if (f.recoPerH?.length){
+        if (keepPerH){
+          recoPerH.push(...f.recoPerH.filter(p => p?.meta?.horizon && hSel.has(String(p.meta.horizon))));
+        } else {
+          // if per-h points are hidden, still show per-h recs (tradeable) by default
+          recoPerH.push(...f.recoPerH);
         }
       }
     }
+  }
 
-    const filtered = filterBasic(pts);
+  const filtered = filterBasic(pts);
 
-    // Build frontier from true-frontier points if present; else from whatever is visible (summary-only fallback)
-    // Use only true frontier non-recommendations for the line
-    const frontierCandidates = filtered.filter(p => p?.meta?.source === 'frontier' && !p?.meta?.reco);
-    const frontierBase = frontierCandidates.length ? frontierCandidates : filtered;
-    const frontier = paretoFront(frontierBase);
-    const best     = euclidBest(frontier);
+  // Pareto from true-frontier non-reco points when available
+  const frontierCandidates = filtered.filter(p => p?.meta?.source === 'frontier' && !p?.label?.startsWith('RECO_'));
+  const frontierBase = frontierCandidates.length ? frontierCandidates : filtered;
+  const frontier = paretoFront(frontierBase);
+  const best     = euclidBest(frontier);
 
-    const datasets = [
-      {
-        type:'scatter', label:'Points', order:10,
-        data: filtered.filter(p=>!p?.meta?.reco)
-                      .map(p=>({ x:p.x, y:p.y, label:p.label, meta:p.meta })),
-        pointRadius:7, pointHoverRadius:9,
-        pointBackgroundColor:'#e5e7eb', pointBorderColor:'#0f172a', pointBorderWidth:1.5
-      },
-      {
-        type:'scatter', label:'Recommendations', order:20,
-        data: reco.map(p=>({ x:p.x, y:p.y, label:p.label, meta:p.meta })),
+  const datasets = [
+    {
+      type:'scatter', label:'Points', order:10,
+      data: filtered.map(p=>({ x:p.x, y:p.y, label:p.label, meta:p.meta })),
+      pointRadius:7, pointHoverRadius:9,
+      pointBackgroundColor:'#e5e7eb', pointBorderColor:'#0f172a', pointBorderWidth:1.5
+    }
+  ];
+
+  if (showRecs){
+    if (recoAgg.length){
+      datasets.push({
+        type:'scatter', label:'Recommendations (Aggregate)', order:20,
+        data: filterBasic(recoAgg).map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
         pointRadius:9, pointHoverRadius:11, pointStyle:'rectRot',
         pointBackgroundColor:'#f59e0b', pointBorderColor:'#7c2d12', pointBorderWidth:2
-      }
-    ];
-
-    // Pareto points (clamped so they’re visible even at Hit=1.0)
-    if (frontier.length){
-      datasets.push({
-        type:'scatter', label:'Pareto Points', order:95,
-        data: frontier.map(p => ({
-          x: clamp01(p.x), y: clamp01(p.y),
-          label:`Pareto • ${p.label||''}`, meta:p.meta
-        })),
-        pointRadius:10, pointHoverRadius:12, pointStyle:'rectRounded',
-        pointBackgroundColor:'#22d3ee', pointBorderColor:'#022c3a', pointBorderWidth:2.5,
-        clip: false
       });
     }
-
-    // --- Pareto frontier (points + line)
-    if (frontier && frontier.length > 0) {
-      const uniq = [];
-      const seen = new Set();
-
-      for (const p of frontier) {
-        const key = `${p.x.toFixed(6)}_${p.y.toFixed(6)}`;
-        if (!seen.has(key)) {
-          uniq.push({ x: p.x, y: p.y });
-          seen.add(key);
-        }
-      }
-
-      uniq.sort((a, b) => a.x - b.x);
-
-      // If only one Pareto point, duplicate slightly for rendering
-      if (uniq.length === 1) {
-        uniq.push({ x: uniq[0].x + 1e-6, y: uniq[0].y });
-      }
-
-      // Draw line if there's at least one point
+    if (recoPerH.length){
       datasets.push({
-        type: 'line',
-        label: 'Pareto Frontier',
-        data: uniq,
-        parsing: false,
-        order: 99,
-        borderColor: '#06b6d4',
-        borderWidth: 3,
-        tension: 0.25,
-        spanGaps: true,
-        pointRadius: 0,
-        showLine: true
+        type:'scatter', label:'Recommendations (Per-Horizon)', order:21,
+        data: filterBasic(recoPerH).map(p=>({x:p.x,y:p.y,label:p.label,meta:p.meta})),
+        pointRadius:9, pointHoverRadius:11, pointStyle:'rectRounded',
+        pointBackgroundColor:'#a78bfa', pointBorderColor:'#4c1d95', pointBorderWidth:2
       });
     }
-
-    if (best){
-      datasets.push({
-        type:'scatter', label:'Euclidean Best', order:97,
-        data:[{ x: clamp01(best.x), y: clamp01(best.y),
-                label:`Closest to (1,1) • ${best.label||''}`, meta:best.meta }],
-        pointRadius:10, pointHoverRadius:12, pointStyle:'star',
-        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2,
-        clip:false
-      });
-      datasets.push({
-        type:'line', label:'Line to Utopia', order:98,
-        data:[{ x: clamp01(best.x), y: clamp01(best.y) }, { x: 1 - EPS, y: 1 - EPS }],
-        borderColor:'#f97316', borderWidth:2, borderDash:[6,6], pointRadius:0, clip:false
-      });
-      datasets.push({
-        type:'scatter', label:'Utopia (1,1)', order:96,
-        data:[{ x: 1 - EPS, y: 1 - EPS }],
-        pointRadius:6, pointStyle:'triangle',
-        pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2,
-        clip:false
-      });
-    }
-
-    const canvas = dom('chart');
-    const ctx = canvas.getContext('2d');
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, { data:{ datasets }, options: baseChartOptions() });
-
-    // Hover-enable zoom
-    canvas.addEventListener('mouseenter', ()=> setZoomEnabled(chart, true));
-    canvas.addEventListener('mouseleave', ()=> setZoomEnabled(chart, false));
-    canvas.addEventListener('touchstart', ()=> setZoomEnabled(chart, true), {passive:true});
-    canvas.addEventListener('touchend',   ()=> setZoomEnabled(chart, false));
-    canvas.addEventListener('touchcancel',()=> setZoomEnabled(chart, false));
-
-    // KPIs
-    const k = dom('kpis');
-    if (filtered.length){
-      const maxHit = filtered.reduce((m,p)=>Math.max(m,p.y),0);
-      const maxCov = filtered.reduce((m,p)=>Math.max(m,p.x),0);
-      const sweet  = filtered.filter(p=>p.y>=0.91 && p.x>=0.5).length;
-      k.style.display='grid';
-      k.innerHTML = `
-        <div class="item"><div class="big">${filtered.length}</div><div class="pill">Points</div></div>
-        <div class="item"><div class="big">${(maxHit*100).toFixed(1)}%</div><div class="pill">Best Hit</div></div>
-        <div class="item"><div class="big">${(maxCov*100).toFixed(1)}%</div><div class="pill">Best Coverage</div></div>
-        <div class="item"><div class="big">${sweet}</div><div class="pill">Sweet Zone (≥91% hit & ≥50% cov)</div></div>`;
-    } else {
-      k.style.display='none'; k.innerHTML='';
-    }
-
-    updateInlineSummary(frontier, filtered);
   }
 
-  function handleRows(rows, filename){
-    if(!rows.length){ console.warn('No rows parsed for', filename); return; }
-    const cols = Object.keys(rows[0] || {});
-    const kind = autoDetectType(cols);
+  if (frontier.length){
+    datasets.push({
+      type:'scatter', label:'Pareto Points', order:95,
+      data: frontier.map(p => ({ x:clamp01(p.x), y:clamp01(p.y), label:`Pareto • ${p.label||''}`, meta:p.meta })),
+      pointRadius:10, pointHoverRadius:12, pointStyle:'rectRounded',
+      pointBackgroundColor:'#22d3ee', pointBorderColor:'#022c3a', pointBorderWidth:2.5, clip:false
+    });
 
-    let fileObj = { name: filename, selected: true, aggPts: [], hmap: new Map(), horizons: new Set(), recoPts: [] };
-
-    if(kind==='summary'){
-      const { horizons, aggFromSummary, hmap } = parseSummary(rows);
-      fileObj.aggPts = aggFromSummary;
-      fileObj.hmap = hmap;
-      fileObj.horizons = new Set(horizons);
-    }
-    else if(kind==='frontier' || kind==='calib'){
-      const { aggPts, hmap, horizons, recoPts } = parseFrontierLike(rows, kind==='calib' ? 'calib' : 'frontier');
-      fileObj.aggPts = aggPts;
-      fileObj.hmap = hmap;
-      fileObj.horizons = new Set(horizons);
-      fileObj.recoPts = recoPts;            // <-- keep recommendations
-    }
-    else { console.warn('Unknown dataset type for', filename); return; }
-
-    state.files.push(fileObj);
-    renderFileChips();
-    updateTitle();
-    rebuildHorizonList();
-    renderCombined();
-  }
-
-  function addChipBadge(text, border="#7f1d1d", color="#fecaca") {
-    const wrap = document.getElementById("fileChips");
-    wrap.insertAdjacentHTML("beforeend",
-      `<span class="pill" style="border-color:${border};color:${color}">${text}</span>`);
-  }
-
-  // Helper: strip BOM/ZWSP, trim, and add lowercase aliases for every column key
-  function cleanRows(rows) {
-    return rows.map(r => {
-      const out = {};
-      for (const k in r) {
-        if (!Object.hasOwn(r, k)) continue;
-        const trimmed = String(k).replace(/^\uFEFF|\u200B/g, '').trim();
-        out[trimmed] = r[k];                 // original, cleaned
-        const lower  = trimmed.toLowerCase();
-        if (!(lower in out)) out[lower] = r[k]; // alias in lowercase (helps matching)
-      }
-      return out;
+    const uniq=[]; const seen=new Set();
+    for (const p of frontier){ const key=`${p.x.toFixed(6)}_${p.y.toFixed(6)}`; if(!seen.has(key)){ uniq.push({x:p.x,y:p.y}); seen.add(key); } }
+    uniq.sort((a,b)=>a.x-b.x);
+    if (uniq.length===1) uniq.push({x:uniq[0].x+1e-6,y:uniq[0].y});
+    datasets.push({
+      type:'line', label:'Pareto Frontier', data:uniq, parsing:false, order:99,
+      borderColor:'#06b6d4', borderWidth:3, tension:0.25, spanGaps:true, pointRadius:0, showLine:true
     });
   }
 
-  // Load one instrument's 3 CSVs, prefixing names in the chip list
-  async function loadFromS3Set(urlSet, prefix='ZN'){
-    resetAll();
-    dom("fileChips").innerHTML = EXPECTED_ROLES
-      .map(r => `<span class="pill">${prefix}-${r}.csv</span>`).join(" ");
-
-    for (const role of EXPECTED_ROLES){
-      const url = urlSet[role];
-      if(!url){ addChipBadge(`${prefix}-${role} missing`, "#7f1d1d", "#fecaca"); continue; }
-
-      try {
-        const res = await fetch(url, { method: "GET", mode: "cors" });
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        // strip BOM at file start (rare but happens)
-        const csvText = (await res.text()).replace(/^\uFEFF/, '');
-
-        const parsed = Papa.parse(csvText, {
-          header: true, dynamicTyping: true, skipEmptyLines: true
-        });
-        if (parsed.errors?.length) {
-          console.warn(`${prefix}-${role} parse warnings:`, parsed.errors.slice(0,3));
-        }
-
-        // >>> KEY FIX: normalize column names so "mae_250ms" etc. are found on ZN
-        const rows = cleanRows(parsed.data || []);
-        if (rows.length) handleRows(rows, `${prefix}-${role}.csv`);
-      } catch (err) {
-        console.error(`Load failed for ${prefix}-${role}:`, err);
-        addChipBadge(`failed: ${prefix}-${role} (${err.message || 'CORS?'})`);
-      }
-    }
-
-    // Optional: if you later specify urlSet.reg, load & index it too (unchanged)
-    if (urlSet.reg){
-      try{
-        const res = await fetch(urlSet.reg, { method:'GET', mode:'cors' });
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const csvText = (await res.text()).replace(/^\uFEFF/, '');
-        const parsed = Papa.parse(csvText, { header:true, dynamicTyping:true, skipEmptyLines:true });
-        showRegStatus(`Loaded regression metrics (${prefix}-reg.csv)`);
-        enrichAllPointsWithRegression();
-        renderCombined();
-      } catch (err) {
-        showRegStatus(`Regression (remote) failed: ${err?.message||'CORS?'}`, true);
-      }
-    }
+  if (best){
+    datasets.push({
+      type:'scatter', label:'Euclidean Best', order:97,
+      data:[{ x:clamp01(best.x), y:clamp01(best.y), label:`Closest to (1,1) • ${best.label||''}`, meta:best.meta }],
+      pointRadius:10, pointHoverRadius:12, pointStyle:'star',
+      pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2, clip:false
+    },{
+      type:'line', label:'Line to Utopia', order:98,
+      data:[{x:clamp01(best.x),y:clamp01(best.y)},{x:1-EPS,y:1-EPS}],
+      borderColor:'#f97316', borderWidth:2, borderDash:[6,6], pointRadius:0, clip:false
+    },{
+      type:'scatter', label:'Utopia (1,1)', order:96,
+      data:[{x:1-EPS,y:1-EPS}], pointRadius:6, pointStyle:'triangle',
+      pointBackgroundColor:'#f97316', pointBorderColor:'#7c2d12', pointBorderWidth:2, clip:false
+    });
   }
 
-  function updateTrainingLabel(){
-    const label = dom('trainingLabel');
-    label.textContent = (currentInstrument === 'ES') ? 'E-mini S&P 500' : '10 Yr Treasury';
+  const canvas = dom('chart'); const ctx = canvas.getContext('2d');
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, { data:{ datasets }, options: baseChartOptions() });
+
+  canvas.addEventListener('mouseenter', ()=> setZoomEnabled(chart,true));
+  canvas.addEventListener('mouseleave', ()=> setZoomEnabled(chart,false));
+  canvas.addEventListener('touchstart', ()=> setZoomEnabled(chart,true), {passive:true});
+  canvas.addEventListener('touchend',   ()=> setZoomEnabled(chart,false));
+  canvas.addEventListener('touchcancel',()=> setZoomEnabled(chart,false));
+
+  const k = dom('kpis');
+  if (filtered.length){
+    const maxHit = filtered.reduce((m,p)=>Math.max(m,p.y),0);
+    const maxCov = filtered.reduce((m,p)=>Math.max(m,p.x),0);
+    const sweet  = filtered.filter(p=>p.y>=0.91 && p.x>=0.5).length;
+    k.style.display='grid';
+    k.innerHTML = `
+      <div class="item"><div class="big">${filtered.length}</div><div class="pill">Points</div></div>
+      <div class="item"><div class="big">${(maxHit*100).toFixed(1)}%</div><div class="pill">Best Hit</div></div>
+      <div class="item"><div class="big">${(maxCov*100).toFixed(1)}%</div><div class="pill">Best Coverage</div></div>
+      <div class="item"><div class="big">${sweet}</div><div class="pill">Sweet Zone (≥91% hit & ≥50% cov)</div></div>`;
+  } else { k.style.display='none'; k.innerHTML=''; }
+
+  updateInlineSummary(frontier, filtered);
+}
+
+function handleRows(rows, filename){
+  if(!rows.length){ console.warn('No rows parsed for', filename); return; }
+  const cols = Object.keys(rows[0] || {});
+  const kind = autoDetectType(cols);
+
+  let fileObj = { name: filename, selected: true, aggPts: [], hmap: new Map(), horizons: new Set(), recoAgg: [], recoPerH: [] };
+
+  if(kind==='summary'){
+    const { horizons, aggFromSummary, hmap } = parseSummary(rows);
+    fileObj.aggPts = aggFromSummary;
+    fileObj.hmap = hmap;
+    fileObj.horizons = new Set(horizons);
   }
+  else if(kind==='frontier' || kind==='calib'){
+    const { aggPts, hmap, horizons, recoAgg, recoPerH } = parseFrontierLike(rows);
+    fileObj.aggPts = aggPts;
+    fileObj.hmap = hmap;
+    fileObj.horizons = new Set(horizons);
+    fileObj.recoAgg = recoAgg;
+    fileObj.recoPerH = recoPerH;
+  }
+  else { console.warn('Unknown dataset type for', filename); return; }
 
-  // ---------- live controls ----------
-  const refilter = ()=>renderCombined();
-  dom('minHit').addEventListener('input', refilter);
-  dom('minCov').addEventListener('input', refilter);
-  dom('showAgg').addEventListener('change', refilter);
-  dom('showPerH').addEventListener('change', (e)=>{
-    applyPerHEnabled(e.target.checked);
-    refilter();
-  });
-  dom('exportPNG').addEventListener('click',()=>{
-    if(!chart) return;
-    const a=document.createElement('a'); a.href=chart.toBase64Image('image/png',1);
-    a.download=`frontier_${currentInstrument}.png`; a.click();
-  });
-  dom('resetZoom').addEventListener('click',()=>{ if(chart && chart.resetZoom) chart.resetZoom(); });
+  state.files.push(fileObj);
+  renderFileChips();
+  updateTitle();
+  rebuildHorizonList();
+  renderCombined();
+}
 
-  // Switch between ZN and ES
-  dom('instrumentSelect').addEventListener('change', (e)=>{
-    currentInstrument = e.target.value;
-    loadFromS3Set(S3_SETS[currentInstrument], currentInstrument);
-    updateTrainingLabel();
-  });
+function addChipBadge(text, border="#7f1d1d", color="#fecaca") {
+  const wrap = document.getElementById("fileChips");
+  wrap.insertAdjacentHTML("beforeend", `<span class="pill" style="border-color:${border};color:${color}">${text}</span>`);
+}
 
-  // Toggle affects tooltip only (not axes/plot)
-  document.querySelectorAll('input[name="viewMode"]').forEach(r => {
-    r.addEventListener('change', () => { if(chart) chart.update(); });
+// normalize headers (trim + lowercase aliases)
+function cleanRows(rows){
+  return rows.map(r=>{
+    const out={};
+    for (const k in r){
+      if(!Object.hasOwn(r,k)) continue;
+      const trimmed=String(k).replace(/^\uFEFF|\u200B/g,'').trim();
+      out[trimmed]=r[k];
+      const lower=trimmed.toLowerCase();
+      if(!(lower in out)) out[lower]=r[k];
+    }
+    return out;
   });
+}
 
-  // Initial load (ZN by default)
-  document.addEventListener('DOMContentLoaded', ()=>{
-    loadFromS3Set(S3_SETS.ZN, 'ZN');
-    updateTrainingLabel();
-  });
-  </script>
+async function loadFromS3Set(urlSet, prefix='ZN'){
+  resetAll();
+  dom("fileChips").innerHTML = EXPECTED_ROLES.map(r=>`<span class="pill">${prefix}-${r}.csv</span>`).join(" ");
+
+  for (const role of EXPECTED_ROLES){
+    const url = urlSet[role];
+    if(!url){ addChipBadge(`${prefix}-${role} missing`, "#7f1d1d", "#fecaca"); continue; }
+    try{
+      const res = await fetch(url, { method:"GET", mode:"cors" });
+      if(!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      const csvText = (await res.text()).replace(/^\uFEFF/, '');
+      const parsed = Papa.parse(csvText, { header:true, dynamicTyping:true, skipEmptyLines:true });
+      const rows = cleanRows(parsed.data || []);
+      if (rows.length) handleRows(rows, `${prefix}-${role}.csv`);
+    } catch(err){
+      console.error(`Load failed for ${prefix}-${role}:`, err);
+      addChipBadge(`failed: ${prefix}-${role} (${err.message||'CORS?'})`);
+    }
+  }
+}
+
+function updateTrainingLabel(){
+  dom('trainingLabel').textContent = (currentInstrument === 'ES') ? 'E-mini S&P 500' : '10 Yr Treasury';
+}
+
+// ----- live controls -----
+const refilter = ()=>renderCombined();
+dom('minHit').addEventListener('input', refilter);
+dom('minCov').addEventListener('input', refilter);
+dom('showAgg').addEventListener('change', refilter);
+dom('toggleRecs').addEventListener('change', refilter);
+dom('showPerH').addEventListener('change', (e)=>{ applyPerHEnabled(e.target.checked); refilter(); });
+dom('exportPNG').addEventListener('click',()=>{ if(!chart) return; const a=document.createElement('a'); a.href=chart.toBase64Image('image/png',1); a.download=`frontier_${currentInstrument}.png`; a.click(); });
+dom('resetZoom').addEventListener('click',()=>{ if(chart && chart.resetZoom) chart.resetZoom(); });
+
+dom('instrumentSelect').addEventListener('change',(e)=>{ currentInstrument=e.target.value; loadFromS3Set(S3_SETS[currentInstrument], currentInstrument); updateTrainingLabel(); });
+document.querySelectorAll('input[name="viewMode"]').forEach(r=>{ r.addEventListener('change', ()=>{ if(chart) chart.update(); }); });
+
+// initial load
+document.addEventListener('DOMContentLoaded', ()=>{ loadFromS3Set(S3_SETS.ZN,'ZN'); updateTrainingLabel(); });
+</script>
 </body>
 </html>
