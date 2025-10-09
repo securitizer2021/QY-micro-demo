@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Anchor Horizon Recommender — Dynamic + Charts</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#151922; --text:#e8eaed; --muted:#9aa0a6; --border:#2a2f3a;
+    --chart-h: 280px; /* identical canvas height for both panels */
+  }
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px}
+  h1{margin:0 0 8px;font-size:22px}
+  .sub{color:var(--muted);margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .controls{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px}
+  select,input[type="range"]{width:100%}
+  .slider-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
+  .row{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+  .pill{padding:6px 10px;border-radius:999px;background:#1b2130;border:1px solid var(--border);color:#dfe3ea;cursor:pointer}
+  .pill.good{background:rgba(15,157,88,.15);border-color:#224f38;color:#b9ffd3}
+  .pill.warn{background:rgba(122,162,255,.15);border-color:#283e7a;color:#cfe0ff}
+  .pill.alt {background:rgba(244,180,0,.12);border-color:#564600;color:#ffe9ad}
+  .recs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+  /* Two-column layout that pairs each chart with its table below it */
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+  .pane{display:flex;flex-direction:column;gap:16px}
+
+  /* Fixed-height chart container (canvas itself) */
+  .chartbox{position:relative;height:var(--chart-h);width:100%}
+  .chartbox canvas{
+    width:100% !important;height:100% !important;display:block;
+    background:#0f1420;border:1px solid var(--border);border-radius:12px;padding:8px;
+  }
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:visible;table-layout:auto}
+  thead th{position:sticky;top:0;background:#1b2130;padding:10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+  tbody td{padding:10px;border-top:1px solid var(--border);vertical-align:top;white-space:nowrap}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .foot{margin-top:10px;color:var(--muted);font-size:12px}
+  .section-title{font-weight:700;margin-bottom:6px}
+  .kwrap{display:flex;gap:8px;align-items:center}
+  .small-select{width:auto;min-width:64px;padding-right:18px}
+
+  /* panel controls */
+  .panel-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .chk-wrap{display:flex;gap:8px;flex-wrap:wrap;max-height:86px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px;background:#101624}
+  .chk-wrap label{display:inline-flex;gap:6px;align-items:center;background:#121a2a;border:1px solid var(--border);padding:4px 8px;border-radius:999px}
+  .muted{color:var(--muted)}
+
+  /* ======= Tooltip (CSS-only) ======= */
+  .tt{position:relative; cursor:help; display:inline-block}
+  .tt::after{
+    content: attr(data-tip);
+    position:absolute; left:0; bottom:calc(100% + 8px);
+    background:#0f1420; color:#e8eaed; border:1px solid #2a2f3a;
+    padding:8px 10px; border-radius:8px; min-width:220px; max-width:340px;
+    font-size:12px; line-height:1.35; white-space:normal;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .15s ease, transform .15s ease;
+    z-index:10;
+  }
+  .tt::before{
+    content:""; position:absolute; left:10px; bottom:calc(100% + 4px);
+    border:6px solid transparent; border-top-color:#2a2f3a; opacity:0; transform:translateY(6px); transition:opacity .15s ease, transform .15s ease;
+    z-index:11;
+  }
+  .tt:hover::after, .tt:hover::before{opacity:1; transform:translateY(0)}
+
+  /* Table font size is synced by JS; provide a safe minimum */
+  #riskTable, #simTable { font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:flex;align-items:center;justify-content:left;gap:12px;margin-bottom:12px">
+      <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
+        <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo" style="height:36px;width:auto;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25)">
+      </a>
+      <h2 style="margin:0">Trading Optimizer</h2>
+  </div>
+
+  <div class="sub">
+    <strong>Event-driven, tick-level</strong> simulation for monthly unemployment releases. Trained on a rolling 12-month window; each tick scores multiple time-horizon anchors. Trades fire only when predicted move clears a threshold with adequate confidence, and outcomes balance PnL vs. risk (Sharpe/MaxDD/Turnover).
+  </div>
+
+  <div class="controls">
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label for="month">Month</label>
+          <select id="month">
+            <option value="202509">202509</option>
+            <option value="202508" selected>202508</option>
+          </select>
+          <div class="foot">Date format : <b>yyyymm</b></div>
+        </div>
+        <div>
+          <label for="instrument">Instrument</label>
+          <select id="instrument">
+            <option value="ZN" selected>ZN (10Y Treasury Futures)</option>
+            <option value="ES">ES (S&P 500 Futures)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label for="risk">Risk Scale</label>
+      <input id="risk" type="range" min="0" max="100" step="1" value="50" />
+      <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
+      <div class="foot">Risk Score = wS·Sharpe − wT·Turnover − wD·MaxDD (then scaled to 0–10).</div>
+    </div>
+
+    <div class="card">
+      <label for="perf">Performance Scale</label>
+      <input id="perf" type="range" min="0" max="100" step="1" value="60" />
+      <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
+      <div class="foot">Perf Score = vP·(Total/100) + vA·Avg − vD·MaxDD − vC·(Turnover/1000) (then scaled to 0–10).</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card" style="flex:1">
+      <div class="section-title">Top-K Recommendations</div>
+      <div class="kwrap">
+        <label for="topk">Show top</label>
+        <select id="topk" class="small-select">
+          <option>1</option><option>2</option><option selected>3</option>
+          <option>4</option><option>5</option><option>6</option><option>7</option>
+        </select>
+        <span>anchors</span>
+      </div>
+      <div style="margin-top:10px"><b>Risk-based</b></div>
+      <div id="recsRisk" class="recs"></div>
+      <div style="margin-top:10px"><b>Performance-based</b></div>
+      <div id="recsPerf" class="recs"></div>
+    </div>
+  </div>
+
+  <div class="panes">
+    <!-- LEFT PANE (RISK) -->
+    <div class="pane">
+      <div class="card" id="riskCard">
+        <div class="section-title">Risk by Horizon</div>
+        <div class="panel-controls">
+          <label for="riskMetricSel">Metric</label>
+          <select id="riskMetricSel" class="small-select">
+            <option value="Sharpe" selected>Sharpe</option>
+            <option value="MaxDD">MaxDD</option>
+            <option value="Turnover">Turnover</option>
+            <option value="Utility">Utility</option>
+            <option value="riskScoreN">Risk Score (0–10)</option>
+          </select>
+          <span class="muted">Anchors</span>
+          <button id="riskAnchorsAll" class="pill">All</button>
+          <button id="riskAnchorsNone" class="pill">None</button>
+        </div>
+        <div id="anchorChecksRisk" class="chk-wrap"></div>
+        <div class="chartbox"><canvas id="riskChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Risk Metrics (risk-only columns)</div>
+        <table id="riskTable">
+          <thead>
+            <tr>
+              <th><span class="tt" data-tip="Anchor horizon in milliseconds.">Horizon (ms)</span></th>
+              <th><span class="tt" data-tip="τ (tau): threshold adjustment on |predicted move| in bps. A trade fires only if |pred| − τ ≥ TH(q), with confidence also passing. Higher τ is stricter.">τ</span></th>
+              <th><span class="tt" data-tip="q: confidence quantile used to set the threshold TH from the distribution of |pred| (or |zpred|). Higher q = stricter.">q</span></th>
+              <th><span class="tt" data-tip="Sharpe ratio on per-trade PnL: mean/SD × √trades. Higher is better.">Sharpe</span></th>
+              <th><span class="tt" data-tip="Number of trades (turnover). Lower is typically better for cost.">Turnover</span></th>
+              <th><span class="tt" data-tip="Maximum drawdown of cumulative PnL (bps). Lower is better.">MaxDD</span></th>
+              <th><span class="tt" data-tip="Utility = Sharpe − 0.001·Turnover − 0.5·MaxDD.">Utility</span></th>
+              <th><span class="tt" data-tip="Scaled 0–10 version of wS·Sharpe − wT·Turnover − wD·MaxDD. Higher is better.">Risk Score (0–10)</span></th>
+            </tr>
+          </thead><tbody></tbody>
+        </table>
+        <div class="foot">Risk scores are min–max scaled per dataset to 0–10.</div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANE (PERFORMANCE) -->
+    <div class="pane">
+      <div class="card" id="perfCard">
+        <div class="section-title">Performance by Horizon</div>
+        <div class="panel-controls">
+          <label for="metricSel">Metric</label>
+          <select id="metricSel" class="small-select">
+            <option value="total_pnl_bps">Total PnL (bps)</option>
+            <option value="avg_pnl_bps">Avg PnL (bps)</option>
+            <option value="med_pnl_bps">Median PnL (bps)</option>
+            <option value="win_pct" selected>Win %</option>
+            <option value="trades">Trades</option>
+            <option value="perfScoreN">Perf Score (0–10)</option>
+          </select>
+          <span class="muted">Anchors</span>
+          <button id="anchorsAll" class="pill">All</button>
+          <button id="anchorsNone" class="pill">None</button>
+        </div>
+        <div id="anchorChecks" class="chk-wrap"></div>
+        <div class="chartbox"><canvas id="pnlChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Simulation Results</div>
+        <table id="simTable">
+          <thead>
+            <tr>
+              <th><span class="tt" data-tip="Anchor horizon in milliseconds.">Horizon</span></th>
+              <th><span class="tt" data-tip="Number of trades fired at this horizon.">Trades</span></th>
+              <th><span class="tt" data-tip="Total PnL in basis points across all trades.">Total PnL (bps)</span></th>
+              <th><span class="tt" data-tip="Average PnL per trade (bps).">Avg PnL</span></th>
+              <th><span class="tt" data-tip="Median PnL per trade (bps).">Median PnL</span></th>
+              <th><span class="tt" data-tip="Count of profitable trades.">Profit</span></th>
+              <th><span class="tt" data-tip="Count of losing trades.">Loss</span></th>
+              <th><span class="tt" data-tip="Count of flat (0 PnL) trades.">Flat</span></th>
+              <th><span class="tt" data-tip="Win rate (%) among non-flat trades.">Win %</span></th>
+              <th><span class="tt" data-tip="Scaled 0–10 version of vP·(Total/100) + vA·Avg − vD·MaxDD − vC·(Turnover/1000). Higher is better.">Perf Score (0–10)</span></th>
+            </tr>
+          </thead><tbody></tbody>
+        </table>
+        <div class="foot">Perf scores are min–max scaled per dataset to 0–10.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- libs -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+/* -------- Month → Date mapping -------- */
+const MONTH_TO_DATE = {"202508":"20250801","202509":"20250905"};
+function buildUrl(month, symbol){ const date = MONTH_TO_DATE[month]; return `https://hft-oos.s3.us-east-2.amazonaws.com/simulation_${symbol}_${date}.csv`; }
+
+/* -------- Colors per metric -------- */
+const METRIC_COLORS = {
+  Sharpe:'#4ade80', MaxDD:'#ef4444', Turnover:'#f59e0b', Utility:'#22c55e', riskScoreN:'#06b6d4',
+  total_pnl_bps:'#60a5fa', avg_pnl_bps:'#a78bfa', med_pnl_bps:'#ec4899', win_pct:'#10b981', trades:'#f97316', perfScoreN:'#eab308'
+};
+
+let cache = {}; let pnlChart=null, riskChart=null; let lastRows=[]; let renderSeq=0, currentKey="";
+
+/* equalize the two top chart *cards* (not just canvases) */
+function syncChartCardHeights(){
+  const left = document.getElementById('riskCard');
+  const right = document.getElementById('perfCard');
+  if(!left || !right) return;
+  // reset to auto first, then lock both to the taller height
+  left.style.height = right.style.height = 'auto';
+  const h = Math.max(left.getBoundingClientRect().height, right.getBoundingClientRect().height);
+  left.style.height = right.style.height = h + 'px';
+}
+
+/* ------------------------ Fetch & Parse ------------------------ */
+function loadCSV(month, symbol){
+  const url = buildUrl(month, symbol);
+  return new Promise((resolve,reject)=>{
+    Papa.parse(url,{download:true,header:true,skipEmptyLines:true,
+      complete: res=>{ if(!res.data || !res.data.length){reject("Empty CSV");return;} resolve(res.data); },
+      error: err=>reject(err)
+    });
+  });
+}
+
+/* ------------------------ Utilities ------------------------ */
+function parseTauQ(note){
+  const tau = (typeof note === 'string' && note.match(/tau=([\d.]+)/)) ? parseFloat(RegExp.$1) : NaN;
+  const q   = (typeof note === 'string' && note.match(/q=([\d.]+)/))   ? parseFloat(RegExp.$1) : NaN;
+  return {tau,q};
+}
+function maxDrawdown(arr){ let cum=0,peak=0,dd=0; for(const v of arr){ cum+=v; peak=Math.max(peak,cum); dd=Math.max(dd, peak-cum);} return dd; }
+
+/* ------------------------ Aggregate per horizon ------------------------ */
+function aggregatePerHorizon(trades){
+  const rows = trades.map(r=>{
+    const h = +r.h_ms; const pnl = +r.pnl_bps || 0;
+    const {tau,q} = parseTauQ(r.note);
+    return {h_ms:h, pnl_bps:pnl, tau, q};
+  }).filter(r=>Number.isFinite(r.h_ms));
+
+  const byH = {}; rows.forEach(r => { (byH[r.h_ms] ||= []).push(r); });
+
+  const agg = [];
+  for(const hStr of Object.keys(byH).sort((a,b)=>+a-+b)){
+    const h = +hStr, arr = byH[h];
+    const tradesN = arr.length;
+    const pnlVals = arr.map(x=>x.pnl_bps);
+    const total = pnlVals.reduce((a,b)=>a+b, 0);
+    const mean  = total / (tradesN || 1);
+    const var_  = pnlVals.reduce((s,v)=>s + (v-mean)*(v-mean), 0) / (tradesN || 1);
+    const std   = Math.sqrt(var_);
+    const avg   = mean;
+    const med   = pnlVals.slice().sort((a,b)=>a-b)[Math.floor((pnlVals.length-1)/2)] ?? 0;
+
+    const profit = pnlVals.filter(v=>v>0).length;
+    const loss   = pnlVals.filter(v=>v<0).length;
+    const flat   = pnlVals.filter(v=>v===0).length;
+    const winpct = (profit + loss) > 0 ? 100 * (profit / (profit + loss)) : 0;
+
+    const Sharpe = (std > 1e-12 && tradesN > 0) ? (avg / std) * Math.sqrt(tradesN) : 0;
+    const MaxDD = maxDrawdown(pnlVals);
+    const Turnover = tradesN;
+    const Utility = Sharpe - 0.001 * Turnover - 0.5 * MaxDD;
+
+    function modeOrNaN(vals){
+      const m = new Map();
+      vals.forEach(v=>{ if(Number.isFinite(v)) m.set(v, (m.get(v)||0)+1); });
+      if(m.size===0) return NaN;
+      let best=[NaN,-1]; for(const [k,c] of m.entries()){ if(c>best[1]) best=[k,c]; }
+      return best[0];
+    }
+    const tau = modeOrNaN(arr.map(x=>x.tau));
+    const q   = modeOrNaN(arr.map(x=>x.q));
+
+    agg.push({ h_ms:h, tau, q,
+      trades:tradesN, total_pnl_bps: total, avg_pnl_bps: avg, med_pnl_bps: med,
+      profit_trades: pnlVals.filter(v=>v>0).length,
+      losing_trades: pnlVals.filter(v=>v<0).length,
+      flat: pnlVals.filter(v=>v===0).length,
+      win_pct: winpct, Sharpe, Turnover, MaxDD, Utility
+    });
+  }
+  return agg;
+}
+
+/* ------------------------ Scoring + Normalization ------------------------ */
+function riskWeights(x){ const t=x/100;  return {wS:0.6+0.3*t,  wT:0.0025-0.0017*t, wD:0.25-0.17*t}; }
+function perfWeights(x){ const t=x/100;  return {vP:0.3+0.4*t,   vA:0.1+0.2*t,      vD:0.25-0.2*t,   vC:1.0-0.75*t}; }
+function scoreRisk(r,W){ return W.wS*r.Sharpe - W.wT*r.Turnover - W.wD*r.MaxDD; }
+function scorePerf(r,P){ return P.vP*((+r.total_pnl_bps||0)/100) + P.vA*(+r.avg_pnl_bps||0) - P.vD*(+r.MaxDD||0) - P.vC*((+r.Turnover||0)/1000); }
+function normalizeTo0_10(rows, keyRaw, keyNorm){
+  const vals = rows.map(r => r[keyRaw]).filter(v => Number.isFinite(v));
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const span = maxV - minV;
+  rows.forEach(r=>{
+    let n = 5;
+    if (Number.isFinite(r[keyRaw]) && span > 1e-12){
+      n = 10 * ( (r[keyRaw] - minV) / span );
+    }
+    r[keyNorm] = n;
+  });
+}
+function recomputeScoresAndNormalize(){
+  const W=riskWeights(+document.getElementById('risk').value);
+  const P=perfWeights(+document.getElementById('perf').value);
+  lastRows.forEach(r=>{ r._riskRaw = scoreRisk(r, W); r._perfRaw = scorePerf(r, P); });
+  normalizeTo0_10(lastRows, '_riskRaw', 'riskScoreN');
+  normalizeTo0_10(lastRows, '_perfRaw', 'perfScoreN');
+}
+
+/* ------------------------ Chart builders ------------------------ */
+function commonOptions(){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    layout:{padding:{top:0,right:0,bottom:0,left:0}},
+    plugins:{legend:{display:true, position:'top', labels:{boxWidth:10}}},
+    scales:{x:{grid:{display:false}}, y:{beginAtZero:true}}
+  };
+}
+function makeBarChart(ctx, labels, data, label, color){
+  return new Chart(ctx,{ type:'bar',
+    data:{ labels, datasets:[{ label, data, backgroundColor: color, borderColor: color, borderWidth: 1 }]},
+    options: commonOptions()
+  });
+}
+function makeLineChart(ctx, labels, data, label, color){
+  return new Chart(ctx,{ type:'line',
+    data:{ labels, datasets:[{ label, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius:2, tension:0.25, fill:false }]},
+    options: commonOptions()
+  });
+}
+
+/* ------------------------ Performance panel ------------------------ */
+function buildAnchorChecksPerf(rows){
+  const wrap = document.getElementById('anchorChecks');
+  wrap.innerHTML = rows.map(r => `<label><input type="checkbox" class="anchorChk" value="${r.h_ms}" checked> ${r.h_ms} ms</label>`).join('');
+  wrap.querySelectorAll('.anchorChk').forEach(cb=> cb.addEventListener('change', ()=>{ updatePerfChart(); syncChartCardHeights(); }));
+  document.getElementById('anchorsAll').onclick  = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.anchorChk').forEach(c=>c.checked=true);  updatePerfChart(); syncChartCardHeights(); };
+  document.getElementById('anchorsNone').onclick = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.anchorChk').forEach(c=>c.checked=false); updatePerfChart(); syncChartCardHeights(); };
+  document.getElementById('metricSel').onchange = ()=>{ updatePerfChart(); syncChartCardHeights(); };
+}
+function getSelectedPerfAnchors(){ return Array.from(document.querySelectorAll('.anchorChk')).filter(c=>c.checked).map(c=>+c.value); }
+function updatePerfChart(){
+  if(!lastRows.length) return;
+  recomputeScoresAndNormalize();
+  const metric = document.getElementById('metricSel').value;
+  const sel = new Set(getSelectedPerfAnchors());
+  const rows = lastRows.filter(r => sel.has(r.h_ms));
+  const labels = rows.map(r=>r.h_ms+' ms');
+  const data = rows.map(r => r[metric]);
+  const color = METRIC_COLORS[metric] || '#7aa2ff';
+  if(pnlChart){ pnlChart.destroy(); }
+  pnlChart = makeBarChart(document.getElementById('pnlChart').getContext('2d'), labels, data, metric, color);
+  renderTables(); updateRecommendations();
+}
+
+/* ------------------------ Risk panel ------------------------ */
+function buildAnchorChecksRisk(rows){
+  const wrap = document.getElementById('anchorChecksRisk');
+  wrap.innerHTML = rows.map(r => `<label><input type="checkbox" class="riskAnchorChk" value="${r.h_ms}" checked> ${r.h_ms} ms</label>`).join('');
+  wrap.querySelectorAll('.riskAnchorChk').forEach(cb=> cb.addEventListener('change', ()=>{ updateRiskChart(); syncChartCardHeights(); }));
+  document.getElementById('riskAnchorsAll').onclick  = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.riskAnchorChk').forEach(c=>c.checked=true);  updateRiskChart(); syncChartCardHeights(); };
+  document.getElementById('riskAnchorsNone').onclick = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.riskAnchorChk').forEach(c=>c.checked=false); updateRiskChart(); syncChartCardHeights(); };
+  document.getElementById('riskMetricSel').onchange = ()=>{ updateRiskChart(); syncChartCardHeights(); };
+}
+function getSelectedRiskAnchors(){ return Array.from(document.querySelectorAll('.riskAnchorChk')).filter(c=>c.checked).map(c=>+c.value); }
+function updateRiskChart(){
+  if(!lastRows.length) return;
+  recomputeScoresAndNormalize();
+  const metric = document.getElementById('riskMetricSel').value;
+  const sel = new Set(getSelectedRiskAnchors());
+  const rows = lastRows.filter(r => sel.has(r.h_ms));
+  const labels = rows.map(r=>r.h_ms+' ms');
+  const data = rows.map(r => r[metric]);
+  const color = METRIC_COLORS[metric] || '#7aa2ff';
+  if(riskChart){ riskChart.destroy(); }
+  riskChart = makeLineChart(document.getElementById('riskChart').getContext('2d'), labels, data, metric, color);
+  renderTables(); updateRecommendations();
+}
+
+/* ------------------------ Tables + Recs ------------------------ */
+function renderTables(){
+  const rt=document.querySelector('#riskTable tbody');
+  rt.innerHTML = lastRows.map(r=>`
+    <tr>
+      <td>${r.h_ms}</td>
+      <td class="num">${Number.isFinite(r.tau)?r.tau.toFixed(3):'—'}</td>
+      <td class="num">${Number.isFinite(r.q)?r.q.toFixed(2):'—'}</td>
+      <td class="num">${r.Sharpe.toFixed(3)}</td>
+      <td class="num">${r.Turnover}</td>
+      <td class="num">${r.MaxDD.toFixed(3)}</td>
+      <td class="num">${r.Utility.toFixed(3)}</td>
+      <td class="num">${r.riskScoreN.toFixed(1)}</td>
+    </tr>`).join('');
+  const st=document.querySelector('#simTable tbody');
+  st.innerHTML = lastRows.map(r=>`
+    <tr>
+      <td>${r.h_ms}</td>
+      <td class="num">${r.trades}</td>
+      <td class="num">${r.total_pnl_bps.toFixed(3)}</td>
+      <td class="num">${r.avg_pnl_bps.toFixed(3)}</td>
+      <td class="num">${r.med_pnl_bps.toFixed(3)}</td>
+      <td class="num">${r.profit_trades}</td>
+      <td class="num">${r.losing_trades}</td>
+      <td class="num">${r.flat}</td>
+      <td class="num">${r.win_pct.toFixed(1)}</td>
+      <td class="num">${r.perfScoreN.toFixed(1)}</td>
+    </tr>`).join('');
+}
+
+/* ------------------------ Recommendations ------------------------ */
+function updateRecommendations(){
+  const topk = +document.getElementById('topk').value || 3;
+  const topRisk = lastRows.slice().sort((a,b)=>b.riskScoreN-a.riskScoreN).slice(0,topk);
+  const topPerf = lastRows.slice().sort((a,b)=>b.perfScoreN-a.perfScoreN).slice(0,topk);
+  document.getElementById('recsRisk').innerHTML = topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(1)}</span>`).join('');
+  document.getElementById('recsPerf').innerHTML = topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(1)}</span>`).join('');
+}
+
+/* ------------------------ Font size sync (tables) ------------------------ */
+function scaleForWidth(px){ if(px <= 420) return 11; if(px <= 560) return 12; if(px <= 720) return 13; return 14; }
+function syncTableFontSizes(){
+  const riskCanvas = document.getElementById('riskChart');
+  const pnlCanvas  = document.getElementById('pnlChart');
+  if(riskCanvas){
+    const w = riskCanvas.getBoundingClientRect().width || 600;
+    document.getElementById('riskTable').style.fontSize = scaleForWidth(w) + 'px';
+  }
+  if(pnlCanvas){
+    const w = pnlCanvas.getBoundingClientRect().width || 600;
+    document.getElementById('simTable').style.fontSize  = scaleForWidth(w) + 'px';
+  }
+}
+
+/* ------------------------ Render ------------------------ */
+async function render(){
+  const month = document.getElementById('month').value;
+  const sym   = document.getElementById('instrument').value;
+  const key = `${month}_${sym}`;
+  const seq = ++renderSeq; currentKey = key;
+
+  if(pnlChart){ pnlChart.destroy(); pnlChart = null; }
+  if(riskChart){ riskChart.destroy(); riskChart = null; }
+  document.querySelector('#riskTable tbody').innerHTML = '';
+  document.querySelector('#simTable tbody').innerHTML = '';
+  document.getElementById('recsRisk').innerHTML = '';
+  document.getElementById('recsPerf').innerHTML = '';
+  document.getElementById('anchorChecks').innerHTML = '';
+  document.getElementById('anchorChecksRisk').innerHTML = '';
+
+  if(!cache[key]){
+    try{ const raw = await loadCSV(month, sym); cache[key] = aggregatePerHorizon(raw); }
+    catch(err){ if(seq === renderSeq && key === currentKey){ const msg = typeof err === 'string' ? err : (err?.message || 'Load error'); document.getElementById('recsRisk').innerHTML = `<span class="pill warn">${msg}</span>`; } return; }
+  }
+  if(seq !== renderSeq || key !== currentKey) return;
+
+  lastRows = cache[key].slice().sort((a,b)=>a.h_ms-b.h_ms);
+  recomputeScoresAndNormalize();
+
+  buildAnchorChecksRisk(lastRows); updateRiskChart();
+  buildAnchorChecksPerf(lastRows); updatePerfChart();
+
+  renderTables(); updateRecommendations(); syncTableFontSizes(); syncChartCardHeights();
+}
+
+/* events */
+['month','instrument','topk'].forEach(id=>{ document.getElementById(id).addEventListener('change', ()=>{ render(); setTimeout(syncChartCardHeights,0); }); });
+['risk','perf'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{
+    if(!lastRows.length) return;
+    updateRiskChart(); updatePerfChart(); syncTableFontSizes(); syncChartCardHeights();
+  });
+});
+window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeights(); });
+
+render();
+</script>
+</body>
+</html>
