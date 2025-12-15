@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>IDT Anchor Horizon Recommender — IS/OS + Charts</title>
+<style>
+  :root{
+    --bg:#0e1116; --card:#151922; --text:#e8eaed; --muted:#9aa0a6; --border:#2a2f3a;
+    --chart-h: 280px;
+  }
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px}
+  .sub{color:var(--muted);margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .controls{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px}
+  select,input[type="range"]{width:100%}
+  .slider-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
+  .row{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+  .pill{padding:6px 10px;border-radius:999px;background:#1b2130;border:1px solid var(--border);color:#dfe3ea;cursor:pointer}
+  .pill.good{background:rgba(15,157,88,.15);border-color:#224f38;color:#b9ffd3}
+  .pill.warn{background:rgba(122,162,255,.15);border-color:#283e7a;color:#cfe0ff}
+  .pill.alt {background:rgba(244,180,0,.12);border-color:#564600;color:#ffe9ad}
+  .recs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+  .pane{display:flex;flex-direction:column;gap:16px}
+
+  /* Chart container */
+  .chartbox{position:relative;height:var(--chart-h);width:100%}
+  .chartbox canvas{
+    width:100% !important;height:100% !important;display:block;
+    background:#0f1420;border:1px solid var(--border);border-radius:12px;padding:8px;
+  }
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:visible;table-layout:auto}
+  thead th{position:sticky;top:0;background:#1b2130;padding:10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+  tbody td{padding:10px;border-top:1px solid var(--border);vertical-align:top;white-space:nowrap}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .foot{margin-top:10px;color:var(--muted);font-size:12px}
+  .section-title{font-weight:700;margin-bottom:6px}
+  .kwrap{display:flex;gap:8px;align-items:center}
+  .small-select{width:auto;min-width:84px;padding-right:18px}
+
+  /* panel controls */
+  .panel-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .muted{color:var(--muted)}
+
+  /* ======= Tooltip (CSS-only) ======= */
+  .tt{position:relative; cursor:help; display:inline-block}
+  .tt::after{
+    content: attr(data-tip);
+    position:absolute; left:0; bottom:calc(100% + 8px);
+    background:#0f1420; color:#e8eaed; border:1px solid #2a2f3a;
+    padding:8px 10px; border-radius:8px; min-width:220px; max-width:340px;
+    font-size:12px; line-height:1.35; white-space:normal;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .15s ease, transform .15s ease;
+    z-index:10;
+  }
+  .tt::before{
+    content:""; position:absolute; left:10px; bottom:calc(100% + 4px);
+    border:6px solid transparent; border-top-color:#2a2f3a; opacity:0; transform:translateY(6px); transition:opacity .15s ease, transform .15s ease;
+    z-index:11;
+  }
+  .tt:hover::after, .tt:hover::before{opacity:1; transform:translateY(0)}
+
+  #riskTable, #simTable { font-size:12px; }
+
+  /* ✅ FIX: horizons area scroll box so it never overlaps chart */
+  .chk-scroll{
+    max-height: 98px;
+    overflow:auto;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px;
+    background:#101624;
+  }
+  .chk-wrap{display:flex;gap:8px;flex-wrap:wrap}
+  .chk-wrap label{display:inline-flex;gap:6px;align-items:center;background:#121a2a;border:1px solid var(--border);padding:4px 8px;border-radius:999px}
+
+  /* extra spacing between checkboxes and chart */
+  .chart-spacer{height:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:flex;align-items:center;justify-content:left;gap:12px;margin-bottom:12px">
+      <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
+        <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo" style="height:36px;width:auto;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25)">
+      </a>
+      <h2 style="margin:0">Trading Optimizer (IDT)</h2>
+  </div>
+
+  <div class="sub">
+    Daily intra-day trading simulation with user-defined risk and performance preferences, ranking horizons to identify top-performing strategies.
+  </div>
+
+  <div class="controls">
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div>
+          <label for="asof">As-of Date</label>
+          <select id="asof"></select>
+          <div class="foot">Format: <b>yyyymmdd</b></div>
+        </div>
+        <div>
+          <label for="instrument">Instrument</label>
+          <select id="instrument">
+            <option value="ZN" selected>ZN (10Y Treasury Futures)</option>
+            <option value="ES">ES (S&P 500 Futures)</option>
+          </select>
+        </div>
+        <div>
+          <label for="tagSel">IS/OS</label>
+          <select id="tagSel">
+            <option value="OS" selected>OS</option>
+            <option value="IS">IS</option>
+          </select>
+          <div class="foot">Computed by asof vs model window</div>
+        </div>
+      </div>
+      <div class="foot" id="status" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <label for="risk">Risk Scale</label>
+      <input id="risk" type="range" min="0" max="100" step="1" value="50" />
+      <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
+      <div class="foot">Risk Score = wS·Sharpe − wT·Turnover − wD·MaxDD (scaled 0–10).</div>
+    </div>
+
+    <div class="card">
+      <label for="perf">Performance Scale</label>
+      <input id="perf" type="range" min="0" max="100" step="1" value="60" />
+      <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
+      <div class="foot">Perf Score = vP·(Total/100) + vA·Avg − vD·MaxDD − vC·(Turnover/1000) (scaled 0–10).</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card" style="flex:1">
+      <div class="section-title">Top-K Recommendations</div>
+      <div class="kwrap">
+        <label for="topk">Show top</label>
+        <select id="topk" class="small-select">
+          <option>1</option><option>2</option><option selected>3</option>
+          <option>4</option><option>5</option><option>6</option><option>7</option>
+        </select>
+        <span>anchors</span>
+      </div>
+      <div style="margin-top:10px"><b>Risk-based</b></div>
+      <div id="recsRisk" class="recs"></div>
+      <div style="margin-top:10px"><b>Performance-based</b></div>
+      <div id="recsPerf" class="recs"></div>
+    </div>
+  </div>
+
+  <div class="panes">
+    <!-- LEFT PANE (RISK) -->
+    <div class="pane">
+      <div class="card" id="riskCard">
+        <div class="section-title">Risk by Horizon</div>
+        <div class="panel-controls">
+          <label for="riskMetricSel">Metric</label>
+          <select id="riskMetricSel" class="small-select">
+            <option value="Sharpe" selected>Sharpe</option>
+            <option value="MaxDD">MaxDD</option>
+            <option value="Turnover">Turnover</option>
+            <option value="Utility">Utility</option>
+            <option value="riskScoreN">Risk Score (0–10)</option>
+          </select>
+          <span class="muted">Anchors</span>
+          <button id="riskAnchorsAll" class="pill">All</button>
+          <button id="riskAnchorsNone" class="pill">None</button>
+        </div>
+
+        <!-- ✅ scrollable checkbox region -->
+        <div class="chk-scroll">
+          <div id="anchorChecksRisk" class="chk-wrap"></div>
+        </div>
+
+        <div class="chart-spacer"></div>
+        <div class="chartbox"><canvas id="riskChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Risk Metrics</div>
+        <table id="riskTable">
+          <thead>
+            <tr>
+              <th>Horizon (ms)</th>
+              <th>τ</th>
+              <th>q</th>
+              <th>Sharpe</th>
+              <th>Turnover</th>
+              <th>MaxDD</th>
+              <th>Utility</th>
+              <th>Risk Score (0–10)</th>
+            </tr>
+          </thead><tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT PANE (PERFORMANCE) -->
+    <div class="pane">
+      <div class="card" id="perfCard">
+        <div class="section-title">Performance by Horizon</div>
+        <div class="panel-controls">
+          <label for="metricSel">Metric</label>
+          <select id="metricSel" class="small-select">
+            <option value="total_pnl_bps">Total PnL (bps)</option>
+            <option value="avg_pnl_bps">Avg PnL (bps)</option>
+            <option value="med_pnl_bps">Median PnL (bps)</option>
+            <option value="win_pct" selected>Win %</option>
+            <option value="trades">Trades</option>
+            <option value="perfScoreN">Perf Score (0–10)</option>
+          </select>
+          <span class="muted">Anchors</span>
+          <button id="anchorsAll" class="pill">All</button>
+          <button id="anchorsNone" class="pill">None</button>
+        </div>
+
+        <!-- ✅ scrollable checkbox region -->
+        <div class="chk-scroll">
+          <div id="anchorChecks" class="chk-wrap"></div>
+        </div>
+
+        <div class="chart-spacer"></div>
+        <div class="chartbox"><canvas id="pnlChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Simulation Results</div>
+        <table id="simTable">
+          <thead>
+            <tr>
+              <th>Horizon</th>
+              <th>Trades</th>
+              <th>Total PnL (bps)</th>
+              <th>Avg PnL</th>
+              <th>Median PnL</th>
+              <th>Profit</th>
+              <th>Loss</th>
+              <th>Flat</th>
+              <th>Win %</th>
+              <th>Perf Score (0–10)</th>
+            </tr>
+          </thead><tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+/* ========= JSON Data Source ========= */
+const JSON_URL = "./idt_daily_data.json";
+
+/* -------- Colors per metric -------- */
+const METRIC_COLORS = {
+  Sharpe:'#4ade80', MaxDD:'#ef4444', Turnover:'#f59e0b', Utility:'#22c55e', riskScoreN:'#06b6d4',
+  total_pnl_bps:'#60a5fa', avg_pnl_bps:'#a78bfa', med_pnl_bps:'#ec4899', win_pct:'#10b981', trades:'#f97316', perfScoreN:'#eab308'
+};
+
+let cache = {};                 // key = `${asof}_${sym}_${tag}`
+let pnlChart=null, riskChart=null;
+let lastRows=[];
+let renderSeq=0, currentKey="";
+let RAW=null;
+
+/* equalize the two top chart *cards* */
+function syncChartCardHeights(){
+  const left = document.getElementById('riskCard');
+  const right = document.getElementById('perfCard');
+  if(!left || !right) return;
+  left.style.height = right.style.height = 'auto';
+  const h = Math.max(left.getBoundingClientRect().height, right.getBoundingClientRect().height);
+  left.style.height = right.style.height = h + 'px';
+}
+
+/* ------------------------ Fetch JSON ------------------------ */
+async function loadJSON(){
+  const r = await fetch(JSON_URL, {cache:"no-store"});
+  if(!r.ok) throw new Error(`Failed to load ${JSON_URL} (${r.status})`);
+  const j = await r.json();
+  if(!Array.isArray(j)) throw new Error("idt_daily_data_1.json must be an array of records");
+  return j;
+}
+
+/* ------------------------ Helpers ------------------------ */
+function num(x, dflt=0){
+  const v = +x;
+  return Number.isFinite(v) ? v : dflt;
+}
+function yyyymmdd(asof){
+  const s = String(asof||"");
+  return (s.length === 8 && s.startsWith("20")) ? s : null;
+}
+
+/* ------------------------ Populate As-of dropdown ------------------------ */
+function populateAsofs(){
+  const sel = document.getElementById('asof');
+  const asofs = Array.from(new Set(RAW.map(r => yyyymmdd(r.asof)).filter(Boolean)))
+    .sort(); // ascending
+  sel.innerHTML = asofs.map(d=>`<option value="${d}">${d}</option>`).join('');
+
+  // default to latest
+  if(asofs.length) sel.value = asofs[asofs.length-1];
+}
+
+/* ------------------------ Build rows for (asof,symbol,tag) ------------------------ */
+function buildRowsFor(asof, sym, tag){
+  const SYM = String(sym||"").toUpperCase();
+  const TAG = String(tag||"").toUpperCase();
+  const ASOF = String(asof||"");
+
+  // Filter to the exact slice we want
+  const slice = RAW.filter(r =>
+    String(r.symbol||"").toUpperCase() === SYM &&
+    String(r.asof||"") === ASOF &&
+    String(r.tag||"").toUpperCase() === TAG
+  );
+
+  if(!slice.length) return {rows:[], meta:null};
+
+  // Map into HFT_simulation-like per-horizon rows
+  const rows = slice.map(r => {
+      const h = num(r.horizon_ms ?? r.h_ms ?? r.horizon, NaN);
+
+      // Prefer explicit fields in JSON; fallback to compatible names
+      const Sharpe = num(r.Sharpe ?? r.sharpe, 0);
+      const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades ?? r.count, 0);
+      const MaxDD = num(r.MaxDD ?? r.mxDD ?? r.maxdd, 0);
+
+      const Utility = Number.isFinite(num(r.Utility, NaN))
+        ? num(r.Utility)
+        : (Sharpe - 0.001*Turnover - 0.5*MaxDD);
+
+      const avg = num(r.avg_pnl_bps ?? r.mean_trades_bps ?? r.mean_all_bps, 0);
+      const total = Number.isFinite(num(r.total_pnl_bps, NaN)) ? num(r.total_pnl_bps) : (avg * Turnover);
+      const med = num(r.med_pnl_bps ?? r.median_bps ?? r.median_bps, 0);
+
+      const profit = num(r.profit_trades, 0);
+      const loss   = num(r.losing_trades, 0);
+      const flat   = num(r.flat, 0);
+      const winpct = Number.isFinite(num(r.win_pct, NaN))
+        ? num(r.win_pct)
+        : (Number.isFinite(num(r.win_rate, NaN)) ? num(r.win_rate) : 0);
+
+      const tau = Number.isFinite(num(r.tau, NaN)) ? num(r.tau) : NaN;
+      const q   = Number.isFinite(num(r.q, NaN)) ? num(r.q) : NaN;
+
+      return {
+        h_ms:h, tau, q,
+        trades:Turnover,
+        total_pnl_bps: total,
+        avg_pnl_bps: avg,
+        med_pnl_bps: med,
+        profit_trades: profit,
+        losing_trades: loss,
+        flat: flat,
+        win_pct: winpct,
+        Sharpe, Turnover, MaxDD, Utility,
+
+        // provenance (optional)
+        model_start: r.model_start,
+        model_end: r.model_end,
+        src_file: r.src_file
+      };
+    })
+    .filter(r => Number.isFinite(r.h_ms))
+    .sort((a,b)=>a.h_ms-b.h_ms);
+
+  // Detect duplicates per horizon (should not happen after tag filter; if it does, show a warning)
+  const dup = rows.length - new Set(rows.map(r=>r.h_ms)).size;
+
+  const meta = {
+    asof: ASOF,
+    symbol: SYM,
+    tag: TAG,
+    rows: rows.length,
+    dup_horizons: dup
+  };
+
+  return {rows, meta};
+}
+
+/* ------------------------ Scoring + Normalization ------------------------ */
+function riskWeights(x){ const t=x/100;  return {wS:0.6+0.3*t,  wT:0.0025-0.0017*t, wD:0.25-0.17*t}; }
+function perfWeights(x){ const t=x/100;  return {vP:0.3+0.4*t,   vA:0.1+0.2*t,      vD:0.25-0.2*t,   vC:1.0-0.75*t}; }
+function scoreRisk(r,W){ return W.wS*r.Sharpe - W.wT*r.Turnover - W.wD*r.MaxDD; }
+function scorePerf(r,P){
+  return P.vP*((+r.total_pnl_bps||0)/100) +
+         P.vA*(+r.avg_pnl_bps||0) -
+         P.vD*(+r.MaxDD||0) -
+         P.vC*((+r.Turnover||0)/1000);
+}
+function normalizeTo0_10(rows, keyRaw, keyNorm){
+  const vals = rows.map(r => r[keyRaw]).filter(v => Number.isFinite(v));
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const span = maxV - minV;
+  rows.forEach(r=>{
+    let n = 5;
+    if (Number.isFinite(r[keyRaw]) && span > 1e-12){
+      n = 10 * ( (r[keyRaw] - minV) / span );
+    }
+    r[keyNorm] = n;
+  });
+}
+function recomputeScoresAndNormalize(){
+  const W=riskWeights(+document.getElementById('risk').value);
+  const P=perfWeights(+document.getElementById('perf').value);
+  lastRows.forEach(r=>{ r._riskRaw = scoreRisk(r, W); r._perfRaw = scorePerf(r, P); });
+  normalizeTo0_10(lastRows, '_riskRaw', 'riskScoreN');
+  normalizeTo0_10(lastRows, '_perfRaw', 'perfScoreN');
+}
+
+/* ------------------------ Chart builders ------------------------ */
+function commonOptions(){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    layout:{padding:{top:0,right:0,bottom:0,left:0}},
+    plugins:{legend:{display:true, position:'top', labels:{boxWidth:10}}},
+    scales:{x:{grid:{display:false}}, y:{beginAtZero:true}}
+  };
+}
+function makeBarChart(ctx, labels, data, label, color){
+  return new Chart(ctx,{ type:'bar',
+    data:{ labels, datasets:[{ label, data, backgroundColor: color, borderColor: color, borderWidth: 1 }]},
+    options: commonOptions()
+  });
+}
+function makeLineChart(ctx, labels, data, label, color){
+  return new Chart(ctx,{ type:'line',
+    data:{ labels, datasets:[{ label, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius:2, tension:0.25, fill:false }]},
+    options: commonOptions()
+  });
+}
+
+/* ------------------------ Performance panel ------------------------ */
+function buildAnchorChecksPerf(rows){
+  const wrap = document.getElementById('anchorChecks');
+  wrap.innerHTML = rows.map(r => `<label><input type="checkbox" class="anchorChk" value="${r.h_ms}" checked> ${r.h_ms} ms</label>`).join('');
+  wrap.querySelectorAll('.anchorChk').forEach(cb=> cb.addEventListener('change', ()=>{ updatePerfChart(); syncChartCardHeights(); }));
+  document.getElementById('anchorsAll').onclick  = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.anchorChk').forEach(c=>c.checked=true);  updatePerfChart(); syncChartCardHeights(); };
+  document.getElementById('anchorsNone').onclick = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.anchorChk').forEach(c=>c.checked=false); updatePerfChart(); syncChartCardHeights(); };
+  document.getElementById('metricSel').onchange = ()=>{ updatePerfChart(); syncChartCardHeights(); };
+}
+function getSelectedPerfAnchors(){ return Array.from(document.querySelectorAll('.anchorChk')).filter(c=>c.checked).map(c=>+c.value); }
+function updatePerfChart(){
+  if(!lastRows.length) return;
+  recomputeScoresAndNormalize();
+  const metric = document.getElementById('metricSel').value;
+  const sel = new Set(getSelectedPerfAnchors());
+  const rows = lastRows.filter(r => sel.has(r.h_ms));
+  const labels = rows.map(r=>r.h_ms+' ms');
+  const data = rows.map(r => r[metric]);
+  const color = METRIC_COLORS[metric] || '#7aa2ff';
+  if(pnlChart){ pnlChart.destroy(); }
+  pnlChart = makeBarChart(document.getElementById('pnlChart').getContext('2d'), labels, data, metric, color);
+  renderTables(); updateRecommendations();
+}
+
+/* ------------------------ Risk panel ------------------------ */
+function buildAnchorChecksRisk(rows){
+  const wrap = document.getElementById('anchorChecksRisk');
+  wrap.innerHTML = rows.map(r => `<label><input type="checkbox" class="riskAnchorChk" value="${r.h_ms}" checked> ${r.h_ms} ms</label>`).join('');
+  wrap.querySelectorAll('.riskAnchorChk').forEach(cb=> cb.addEventListener('change', ()=>{ updateRiskChart(); syncChartCardHeights(); }));
+  document.getElementById('riskAnchorsAll').onclick  = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.riskAnchorChk').forEach(c=>c.checked=true);  updateRiskChart(); syncChartCardHeights(); };
+  document.getElementById('riskAnchorsNone').onclick = (e)=>{ e.preventDefault(); wrap.querySelectorAll('.riskAnchorChk').forEach(c=>c.checked=false); updateRiskChart(); syncChartCardHeights(); };
+  document.getElementById('riskMetricSel').onchange = ()=>{ updateRiskChart(); syncChartCardHeights(); };
+}
+function getSelectedRiskAnchors(){ return Array.from(document.querySelectorAll('.riskAnchorChk')).filter(c=>c.checked).map(c=>+c.value); }
+function updateRiskChart(){
+  if(!lastRows.length) return;
+  recomputeScoresAndNormalize();
+  const metric = document.getElementById('riskMetricSel').value;
+  const sel = new Set(getSelectedRiskAnchors());
+  const rows = lastRows.filter(r => sel.has(r.h_ms));
+  const labels = rows.map(r=>r.h_ms+' ms');
+  const data = rows.map(r => r[metric]);
+  const color = METRIC_COLORS[metric] || '#7aa2ff';
+  if(riskChart){ riskChart.destroy(); }
+  riskChart = makeLineChart(document.getElementById('riskChart').getContext('2d'), labels, data, metric, color);
+  renderTables(); updateRecommendations();
+}
+
+/* ------------------------ Tables + Recs ------------------------ */
+function renderTables(){
+  const rt=document.querySelector('#riskTable tbody');
+  rt.innerHTML = lastRows.map(r=>`
+    <tr>
+      <td>${r.h_ms}</td>
+      <td class="num">${Number.isFinite(r.tau)?r.tau.toFixed(3):'—'}</td>
+      <td class="num">${Number.isFinite(r.q)?r.q.toFixed(2):'—'}</td>
+      <td class="num">${num(r.Sharpe,0).toFixed(3)}</td>
+      <td class="num">${num(r.Turnover,0)}</td>
+      <td class="num">${num(r.MaxDD,0).toFixed(3)}</td>
+      <td class="num">${num(r.Utility,0).toFixed(3)}</td>
+      <td class="num">${num(r.riskScoreN,0).toFixed(1)}</td>
+    </tr>`).join('');
+
+  const st=document.querySelector('#simTable tbody');
+  st.innerHTML = lastRows.map(r=>`
+    <tr>
+      <td>${r.h_ms}</td>
+      <td class="num">${num(r.trades,0)}</td>
+      <td class="num">${num(r.total_pnl_bps,0).toFixed(3)}</td>
+      <td class="num">${num(r.avg_pnl_bps,0).toFixed(3)}</td>
+      <td class="num">${num(r.med_pnl_bps,0).toFixed(3)}</td>
+      <td class="num">${num(r.profit_trades,0)}</td>
+      <td class="num">${num(r.losing_trades,0)}</td>
+      <td class="num">${num(r.flat,0)}</td>
+      <td class="num">${num(r.win_pct,0).toFixed(1)}</td>
+      <td class="num">${num(r.perfScoreN,0).toFixed(1)}</td>
+    </tr>`).join('');
+}
+
+/* ------------------------ Recommendations ------------------------ */
+function updateRecommendations(){
+  const topk = +document.getElementById('topk').value || 3;
+  // recompute already called by charts, but safe if someone calls recs first
+  const topRisk = lastRows.slice().sort((a,b)=>b.riskScoreN-a.riskScoreN).slice(0,topk);
+  const topPerf = lastRows.slice().sort((a,b)=>b.perfScoreN-a.perfScoreN).slice(0,topk);
+  document.getElementById('recsRisk').innerHTML = topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(1)}</span>`).join('');
+  document.getElementById('recsPerf').innerHTML = topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(1)}</span>`).join('');
+}
+
+/* ------------------------ Font size sync (tables) ------------------------ */
+function scaleForWidth(px){ if(px <= 420) return 11; if(px <= 560) return 12; if(px <= 720) return 13; return 14; }
+function syncTableFontSizes(){
+  const riskCanvas = document.getElementById('riskChart');
+  const pnlCanvas  = document.getElementById('pnlChart');
+  if(riskCanvas){
+    const w = riskCanvas.getBoundingClientRect().width || 600;
+    document.getElementById('riskTable').style.fontSize = scaleForWidth(w) + 'px';
+  }
+  if(pnlCanvas){
+    const w = pnlCanvas.getBoundingClientRect().width || 600;
+    document.getElementById('simTable').style.fontSize  = scaleForWidth(w) + 'px';
+  }
+}
+
+/* ------------------------ Render ------------------------ */
+async function render(){
+  const asof = document.getElementById('asof').value;
+  const sym  = document.getElementById('instrument').value;
+  const tag  = document.getElementById('tagSel').value;
+
+  const key = `${asof}_${sym}_${tag}`;
+  const seq = ++renderSeq; currentKey = key;
+
+  if(pnlChart){ pnlChart.destroy(); pnlChart = null; }
+  if(riskChart){ riskChart.destroy(); riskChart = null; }
+
+  document.querySelector('#riskTable tbody').innerHTML = '';
+  document.querySelector('#simTable tbody').innerHTML = '';
+  document.getElementById('recsRisk').innerHTML = '';
+  document.getElementById('recsPerf').innerHTML = '';
+  document.getElementById('anchorChecks').innerHTML = '';
+  document.getElementById('anchorChecksRisk').innerHTML = '';
+  document.getElementById('status').textContent = '';
+
+  if(!cache[key]){
+    cache[key] = buildRowsFor(asof, sym, tag);
+  }
+  if(seq !== renderSeq || key !== currentKey) return;
+
+  const built = cache[key];
+  lastRows = (built.rows || []).slice().sort((a,b)=>a.h_ms-b.h_ms);
+
+  if(!lastRows.length){
+    document.getElementById('recsRisk').innerHTML =
+      `<span class="pill warn">No data for ${sym} • ${asof} • ${tag}</span>`;
+    document.getElementById('status').textContent =
+      `Source: ${JSON_URL} • No rows for ${sym} ${asof} ${tag}`;
+    return;
+  }
+
+  recomputeScoresAndNormalize();
+  buildAnchorChecksRisk(lastRows); updateRiskChart();
+  buildAnchorChecksPerf(lastRows); updatePerfChart();
+  renderTables(); updateRecommendations(); syncTableFontSizes(); syncChartCardHeights();
+
+  const dupMsg = (built.meta && built.meta.dup_horizons > 0)
+    ? ` • WARNING: dup_horizons=${built.meta.dup_horizons}`
+    : '';
+  document.getElementById('status').textContent =
+    `Source: ${JSON_URL} • ${sym} • asof=${asof} • tag=${tag} • rows=${lastRows.length}${dupMsg}`;
+}
+
+/* events */
+['asof','instrument','tagSel','topk'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{
+    render();
+    setTimeout(syncChartCardHeights,0);
+  });
+});
+['risk','perf'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{
+    if(!lastRows.length) return;
+    // these will call recomputeScoresAndNormalize internally
+    updateRiskChart();
+    updatePerfChart();
+    syncTableFontSizes();
+    syncChartCardHeights();
+  });
+});
+window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeights(); });
+
+/* boot */
+(async function boot(){
+  try{
+    RAW = await loadJSON();
+    RAW.forEach(r => {
+      if(r.symbol) r.symbol = String(r.symbol).toUpperCase();
+      if(r.tag) r.tag = String(r.tag).toUpperCase();
+    });
+
+    populateAsofs();
+
+    // If JSON has only OS initially, keep OS selected
+    const tags = Array.from(new Set(RAW.map(r=>String(r.tag||"").toUpperCase()).filter(Boolean)));
+    if(tags.includes("IS") && tags.includes("OS")){
+      // keep default OS
+    }else if(tags.length === 1){
+      document.getElementById('tagSel').value = tags[0];
+    }
+
+    render();
+  }catch(e){
+    document.getElementById('recsRisk').innerHTML = `<span class="pill warn">${e?.message || e}</span>`;
+    document.getElementById('status').textContent = `Load error: ${e?.message || e}`;
+  }
+})();
+</script>
+</body>
+</html>
