@@ -26,14 +26,12 @@
   .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
   .pane{display:flex;flex-direction:column;gap:16px}
 
-  /* Chart container */
   .chartbox{position:relative;height:var(--chart-h);width:100%}
   .chartbox canvas{
     width:100% !important;height:100% !important;display:block;
     background:#0f1420;border:1px solid var(--border);border-radius:12px;padding:8px;
   }
 
-  /* tables */
   table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:visible;table-layout:auto}
   thead th{position:sticky;top:0;background:#1b2130;padding:10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
   tbody td{padding:10px;border-top:1px solid var(--border);vertical-align:top;white-space:nowrap}
@@ -42,12 +40,9 @@
   .section-title{font-weight:700;margin-bottom:6px}
   .kwrap{display:flex;gap:8px;align-items:center}
   .small-select{width:auto;min-width:84px;padding-right:18px}
-
-  /* panel controls */
   .panel-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
   .muted{color:var(--muted)}
 
-  /* ======= Tooltip (CSS-only) ======= */
   .tt{position:relative; cursor:help; display:inline-block}
   .tt::after{
     content: attr(data-tip);
@@ -68,7 +63,7 @@
 
   #riskTable, #simTable { font-size:12px; }
 
-  /* ✅ FIX: horizons area scroll box so it never overlaps chart */
+  /* horizons area scroll box so it never overlaps chart */
   .chk-scroll{
     max-height: 98px;
     overflow:auto;
@@ -80,21 +75,21 @@
   .chk-wrap{display:flex;gap:8px;flex-wrap:wrap}
   .chk-wrap label{display:inline-flex;gap:6px;align-items:center;background:#121a2a;border:1px solid var(--border);padding:4px 8px;border-radius:999px}
 
-  /* extra spacing between checkboxes and chart */
   .chart-spacer{height:10px}
 </style>
 </head>
+
 <body>
 <div class="wrap">
   <div style="display:flex;align-items:center;justify-content:left;gap:12px;margin-bottom:12px">
       <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
         <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo" style="height:36px;width:auto;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25)">
       </a>
-      <h2 style="margin:0">IDT Trading Simulation</h2>
+      <h2 style="margin:0">Trading Optimizer (IDT)</h2>
   </div>
 
   <div class="sub">
-    Daily intra-day trading simulation with user-defined risk and performance preferences, ranking horizons to identify top-performing strategies.
+    Daily intra-day trading simulation using a rolling 30-day training window on L1/L2/L3 features. Your risk and performance tolerances rank anchor horizons to surface the best-fit trading profiles.
   </div>
 
   <div class="controls">
@@ -128,14 +123,18 @@
       <label for="risk">Risk Scale</label>
       <input id="risk" type="range" min="0" max="100" step="1" value="50" />
       <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
-      <div class="foot">Risk Score = wS·Sharpe − wT·Turnover − wD·MaxDD (scaled 0–10).</div>
+      <div class="foot">
+        Risk Score = wS·Sharpe − wT·Turnover − wD·MaxDD (scaled 0–10).
+      </div>
     </div>
 
     <div class="card">
       <label for="perf">Performance Scale</label>
       <input id="perf" type="range" min="0" max="100" step="1" value="60" />
       <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
-      <div class="foot">Perf Score = vP·(Total/100) + vA·Avg − vD·MaxDD − vC·(Turnover/1000) (scaled 0–10).</div>
+      <div class="foot">
+        Perf Score = vTot·(Total/100) + vAvg·Avg + vWin·(Win%/100) − vC·(Turnover/2000) − vD·MaxDD (scaled 0–10).
+      </div>
     </div>
   </div>
 
@@ -176,7 +175,6 @@
           <button id="riskAnchorsNone" class="pill">None</button>
         </div>
 
-        <!-- ✅ scrollable checkbox region -->
         <div class="chk-scroll">
           <div id="anchorChecksRisk" class="chk-wrap"></div>
         </div>
@@ -223,7 +221,6 @@
           <button id="anchorsNone" class="pill">None</button>
         </div>
 
-        <!-- ✅ scrollable checkbox region -->
         <div class="chk-scroll">
           <div id="anchorChecks" class="chk-wrap"></div>
         </div>
@@ -272,7 +269,6 @@ let lastRows=[];
 let renderSeq=0, currentKey="";
 let RAW=null;
 
-/* equalize the two top chart *cards* */
 function syncChartCardHeights(){
   const left = document.getElementById('riskCard');
   const right = document.getElementById('perfCard');
@@ -282,16 +278,14 @@ function syncChartCardHeights(){
   left.style.height = right.style.height = h + 'px';
 }
 
-/* ------------------------ Fetch JSON ------------------------ */
 async function loadJSON(){
   const r = await fetch(JSON_URL, {cache:"no-store"});
   if(!r.ok) throw new Error(`Failed to load ${JSON_URL} (${r.status})`);
   const j = await r.json();
-  if(!Array.isArray(j)) throw new Error("idt_daily_data_1.json must be an array of records");
+  if(!Array.isArray(j)) throw new Error("idt_daily_data.json must be an array of records");
   return j;
 }
 
-/* ------------------------ Helpers ------------------------ */
 function num(x, dflt=0){
   const v = +x;
   return Number.isFinite(v) ? v : dflt;
@@ -301,24 +295,19 @@ function yyyymmdd(asof){
   return (s.length === 8 && s.startsWith("20")) ? s : null;
 }
 
-/* ------------------------ Populate As-of dropdown ------------------------ */
 function populateAsofs(){
   const sel = document.getElementById('asof');
-  const asofs = Array.from(new Set(RAW.map(r => yyyymmdd(r.asof)).filter(Boolean)))
-    .sort(); // ascending
+  const asofs = Array.from(new Set(RAW.map(r => yyyymmdd(r.asof)).filter(Boolean))).sort();
   sel.innerHTML = asofs.map(d=>`<option value="${d}">${d}</option>`).join('');
-
-  // default to latest
   if(asofs.length) sel.value = asofs[asofs.length-1];
 }
 
-/* ------------------------ Build rows for (asof,symbol,tag) ------------------------ */
+/* Build rows for (asof,symbol,tag) */
 function buildRowsFor(asof, sym, tag){
   const SYM = String(sym||"").toUpperCase();
   const TAG = String(tag||"").toUpperCase();
   const ASOF = String(asof||"");
 
-  // Filter to the exact slice we want
   const slice = RAW.filter(r =>
     String(r.symbol||"").toUpperCase() === SYM &&
     String(r.asof||"") === ASOF &&
@@ -327,35 +316,33 @@ function buildRowsFor(asof, sym, tag){
 
   if(!slice.length) return {rows:[], meta:null};
 
-  // Map into HFT_simulation-like per-horizon rows
   const rows = slice.map(r => {
       const h = num(r.horizon_ms ?? r.h_ms ?? r.horizon, NaN);
 
-      // Prefer explicit fields in JSON; fallback to compatible names
-      const Sharpe = num(r.Sharpe ?? r.sharpe, 0);
-      const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades ?? r.count, 0);
-      const MaxDD = num(r.MaxDD ?? r.mxDD ?? r.maxdd, 0);
+      // Risk
+      const Sharpe   = num(r.Sharpe ?? r.sharpe, 0);
+      const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades, 0);
+      const MaxDD    = num(r.MaxDD ?? r.mxDD ?? r.maxdd, 0);
+      const Utility  = Number.isFinite(num(r.Utility, NaN)) ? num(r.Utility) : (Sharpe - 0.001*Turnover - 0.5*MaxDD);
 
-      const Utility = Number.isFinite(num(r.Utility, NaN))
-        ? num(r.Utility)
-        : (Sharpe - 0.001*Turnover - 0.5*MaxDD);
-
-      const avg = num(r.avg_pnl_bps ?? r.mean_trades_bps ?? r.mean_all_bps, 0);
+      // Performance (prefer explicit)
+      const avg   = num(r.avg_pnl_bps ?? r.mean_trades_bps ?? r.mean_all_bps, 0);
       const total = Number.isFinite(num(r.total_pnl_bps, NaN)) ? num(r.total_pnl_bps) : (avg * Turnover);
-      const med = num(r.med_pnl_bps ?? r.median_bps ?? r.median_bps, 0);
+      const med   = num(r.med_pnl_bps ?? r.median_bps, 0);
+      const winpct = Number.isFinite(num(r.win_pct, NaN)) ? num(r.win_pct)
+                   : (Number.isFinite(num(r.win_rate, NaN)) ? num(r.win_rate) : 0);
 
-      const profit = num(r.profit_trades, 0);
-      const loss   = num(r.losing_trades, 0);
+      const profit = num(r.profit_trades ?? r.profit, 0);
+      const loss   = num(r.losing_trades ?? r.loss, 0);
       const flat   = num(r.flat, 0);
-      const winpct = Number.isFinite(num(r.win_pct, NaN))
-        ? num(r.win_pct)
-        : (Number.isFinite(num(r.win_rate, NaN)) ? num(r.win_rate) : 0);
 
       const tau = Number.isFinite(num(r.tau, NaN)) ? num(r.tau) : NaN;
       const q   = Number.isFinite(num(r.q, NaN)) ? num(r.q) : NaN;
 
       return {
         h_ms:h, tau, q,
+
+        // used by charts/tables
         trades:Turnover,
         total_pnl_bps: total,
         avg_pnl_bps: avg,
@@ -364,9 +351,9 @@ function buildRowsFor(asof, sym, tag){
         losing_trades: loss,
         flat: flat,
         win_pct: winpct,
+
         Sharpe, Turnover, MaxDD, Utility,
 
-        // provenance (optional)
         model_start: r.model_start,
         model_end: r.model_end,
         src_file: r.src_file
@@ -375,46 +362,71 @@ function buildRowsFor(asof, sym, tag){
     .filter(r => Number.isFinite(r.h_ms))
     .sort((a,b)=>a.h_ms-b.h_ms);
 
-  // Detect duplicates per horizon (should not happen after tag filter; if it does, show a warning)
   const dup = rows.length - new Set(rows.map(r=>r.h_ms)).size;
-
-  const meta = {
-    asof: ASOF,
-    symbol: SYM,
-    tag: TAG,
-    rows: rows.length,
-    dup_horizons: dup
-  };
-
-  return {rows, meta};
+  return { rows, meta:{asof:ASOF,symbol:SYM,tag:TAG,rows:rows.length,dup_horizons:dup} };
 }
 
 /* ------------------------ Scoring + Normalization ------------------------ */
-function riskWeights(x){ const t=x/100;  return {wS:0.6+0.3*t,  wT:0.0025-0.0017*t, wD:0.25-0.17*t}; }
-function perfWeights(x){ const t=x/100;  return {vP:0.3+0.4*t,   vA:0.1+0.2*t,      vD:0.25-0.2*t,   vC:1.0-0.75*t}; }
-function scoreRisk(r,W){ return W.wS*r.Sharpe - W.wT*r.Turnover - W.wD*r.MaxDD; }
-function scorePerf(r,P){
-  return P.vP*((+r.total_pnl_bps||0)/100) +
-         P.vA*(+r.avg_pnl_bps||0) -
-         P.vD*(+r.MaxDD||0) -
-         P.vC*((+r.Turnover||0)/1000);
+/* Risk: keep as-is */
+function riskWeights(x){
+  const t=x/100;
+  return {
+    wS: 0.55 + 0.35*t,     // emphasize Sharpe more as user goes aggressive
+    wT: 0.0030 - 0.0020*t, // penalize turnover less when aggressive
+    wD: 0.30  - 0.18*t     // penalize drawdown less when aggressive
+  };
 }
+
+/* Perf: IMPORTANT — separate from risk, and include win% explicitly */
+function perfWeights(x){
+  const t=x/100;
+  return {
+    vTot: 0.20 + 0.55*t,   // aggressive cares more about total outcome
+    vAvg: 0.10 + 0.20*t,   // and average per-trade
+    vWin: 0.10 + 0.20*(1-t), // conservative cares more about hit-rate
+    vC:   1.10 - 0.75*t,   // turnover penalty decreases with aggressiveness
+    vD:   0.35 - 0.20*t    // drawdown penalty decreases with aggressiveness
+  };
+}
+
+function scoreRisk(r,W){
+  return W.wS*r.Sharpe - W.wT*r.Turnover - W.wD*r.MaxDD;
+}
+
+function scorePerf(r,P){
+  const totalTerm = (num(r.total_pnl_bps,0) / 100.0);
+  const avgTerm   = num(r.avg_pnl_bps,0);
+  const winTerm   = (num(r.win_pct,0) / 100.0);
+
+  // NOTE: penalize turnover on a milder scale for IDT (per 2000 trades)
+  const turnTerm  = (num(r.Turnover,0) / 2000.0);
+
+  return P.vTot*totalTerm + P.vAvg*avgTerm + P.vWin*winTerm - P.vC*turnTerm - P.vD*num(r.MaxDD,0);
+}
+
 function normalizeTo0_10(rows, keyRaw, keyNorm){
   const vals = rows.map(r => r[keyRaw]).filter(v => Number.isFinite(v));
   const minV = Math.min(...vals), maxV = Math.max(...vals);
   const span = maxV - minV;
+
   rows.forEach(r=>{
     let n = 5;
     if (Number.isFinite(r[keyRaw]) && span > 1e-12){
-      n = 10 * ( (r[keyRaw] - minV) / span );
+      n = 10 * ((r[keyRaw] - minV) / span);
     }
     r[keyNorm] = n;
   });
 }
+
 function recomputeScoresAndNormalize(){
   const W=riskWeights(+document.getElementById('risk').value);
   const P=perfWeights(+document.getElementById('perf').value);
-  lastRows.forEach(r=>{ r._riskRaw = scoreRisk(r, W); r._perfRaw = scorePerf(r, P); });
+
+  lastRows.forEach(r=>{
+    r._riskRaw = scoreRisk(r, W);
+    r._perfRaw = scorePerf(r, P);
+  });
+
   normalizeTo0_10(lastRows, '_riskRaw', 'riskScoreN');
   normalizeTo0_10(lastRows, '_perfRaw', 'perfScoreN');
 }
@@ -520,17 +532,22 @@ function renderTables(){
     </tr>`).join('');
 }
 
-/* ------------------------ Recommendations ------------------------ */
 function updateRecommendations(){
   const topk = +document.getElementById('topk').value || 3;
-  // recompute already called by charts, but safe if someone calls recs first
+
+  // IMPORTANT: recompute here too (so recs update even if chart metric doesn't change)
+  recomputeScoresAndNormalize();
+
   const topRisk = lastRows.slice().sort((a,b)=>b.riskScoreN-a.riskScoreN).slice(0,topk);
   const topPerf = lastRows.slice().sort((a,b)=>b.perfScoreN-a.perfScoreN).slice(0,topk);
-  document.getElementById('recsRisk').innerHTML = topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(1)}</span>`).join('');
-  document.getElementById('recsPerf').innerHTML = topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(1)}</span>`).join('');
+
+  document.getElementById('recsRisk').innerHTML =
+    topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(1)}</span>`).join('');
+
+  document.getElementById('recsPerf').innerHTML =
+    topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(1)}</span>`).join('');
 }
 
-/* ------------------------ Font size sync (tables) ------------------------ */
 function scaleForWidth(px){ if(px <= 420) return 11; if(px <= 560) return 12; if(px <= 720) return 13; return 14; }
 function syncTableFontSizes(){
   const riskCanvas = document.getElementById('riskChart');
@@ -545,7 +562,6 @@ function syncTableFontSizes(){
   }
 }
 
-/* ------------------------ Render ------------------------ */
 async function render(){
   const asof = document.getElementById('asof').value;
   const sym  = document.getElementById('instrument').value;
@@ -593,26 +609,26 @@ async function render(){
     `Source: ${JSON_URL} • ${sym} • asof=${asof} • tag=${tag} • rows=${lastRows.length}${dupMsg}`;
 }
 
-/* events */
 ['asof','instrument','tagSel','topk'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{
     render();
     setTimeout(syncChartCardHeights,0);
   });
 });
+
 ['risk','perf'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
     if(!lastRows.length) return;
-    // these will call recomputeScoresAndNormalize internally
     updateRiskChart();
     updatePerfChart();
+    updateRecommendations();  // <- ensure top-k changes even if chart selection unchanged
     syncTableFontSizes();
     syncChartCardHeights();
   });
 });
+
 window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeights(); });
 
-/* boot */
 (async function boot(){
   try{
     RAW = await loadJSON();
@@ -623,11 +639,8 @@ window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeigh
 
     populateAsofs();
 
-    // If JSON has only OS initially, keep OS selected
     const tags = Array.from(new Set(RAW.map(r=>String(r.tag||"").toUpperCase()).filter(Boolean)));
-    if(tags.includes("IS") && tags.includes("OS")){
-      // keep default OS
-    }else if(tags.length === 1){
+    if(tags.length === 1){
       document.getElementById('tagSel').value = tags[0];
     }
 
