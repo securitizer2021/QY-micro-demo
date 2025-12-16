@@ -507,8 +507,6 @@ function renderTables(){
   rt.innerHTML = lastRows.map(r=>`
     <tr>
       <td>${r.h_ms}</td>
-      <td class="num">${Number.isFinite(r.tau)?r.tau.toFixed(3):'—'}</td>
-      <td class="num">${Number.isFinite(r.q)?r.q.toFixed(2):'—'}</td>
       <td class="num">${num(r.Sharpe,0).toFixed(3)}</td>
       <td class="num">${num(r.Turnover,0)}</td>
       <td class="num">${num(r.MaxDD,0).toFixed(3)}</td>
