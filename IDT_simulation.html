@@ -9,6 +9,7 @@
   :root{
     --bg:#0e1116; --card:#151922; --text:#e8eaed; --muted:#9aa0a6; --border:#2a2f3a;
     --chart-h: 280px;
+    --os:#22c55e; --is:#60a5fa; --unk:#f59e0b; --bad:#ef4444;
   }
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{max-width:1280px;margin:0 auto;padding:24px}
@@ -18,10 +19,23 @@
   select,input[type="range"]{width:100%}
   .slider-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
   .row{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
-  .pill{padding:6px 10px;border-radius:999px;background:#1b2130;border:1px solid var(--border);color:#dfe3ea;cursor:pointer}
+
+  .pill{padding:6px 10px;border-radius:999px;background:#1b2130;border:1px solid var(--border);color:#dfe3ea;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
   .pill.good{background:rgba(15,157,88,.15);border-color:#224f38;color:#b9ffd3}
   .pill.warn{background:rgba(122,162,255,.15);border-color:#283e7a;color:#cfe0ff}
   .pill.alt {background:rgba(244,180,0,.12);border-color:#564600;color:#ffe9ad}
+
+  .pill.tagOS{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:#c9ffe0}
+  .pill.tagIS{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.35);color:#d6e8ff}
+  .pill.tagUNK{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:#ffe7bf}
+  .pill.tagBAD{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#ffd0d0}
+
+  .badgeDot{width:8px;height:8px;border-radius:999px;display:inline-block}
+  .dotOS{background:var(--os)}
+  .dotIS{background:var(--is)}
+  .dotUNK{background:var(--unk)}
+  .dotBAD{background:var(--bad)}
+
   .recs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 
   .panes{
@@ -75,7 +89,7 @@
 
   .foot{margin-top:10px;color:var(--muted);font-size:12px}
   .section-title{font-weight:700;margin-bottom:6px}
-  .kwrap{display:flex;gap:8px;align-items:center}
+  .kwrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .small-select{width:auto;min-width:84px;padding-right:18px}
   .panel-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
   .muted{color:var(--muted)}
@@ -99,6 +113,21 @@
   }
 
   .chart-spacer{height:10px}
+
+  .tagbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+  .taginfo{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+  .compareWrap{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+    margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
+  }
+  .toggle{
+    display:inline-flex;gap:8px;align-items:center;
+    padding:6px 10px;border-radius:999px;background:#121a2a;border:1px solid var(--border);
+    cursor:pointer;user-select:none
+  }
+  .toggle input{width:auto}
+  .hint{color:var(--muted);font-size:12px}
 
   @media (max-width: 980px){
     .controls{grid-template-columns:1fr}
@@ -137,14 +166,25 @@
           </select>
         </div>
         <div>
-          <label for="tagSel">IS/OS</label>
+          <label for="tagSel">View</label>
           <select id="tagSel">
-            <option value="OS" selected>OS</option>
-            <option value="IS">IS</option>
+            <option value="AUTO" selected>Auto (prefer OS)</option>
+            <option value="OS">OS only</option>
+            <option value="IS">IS only</option>
           </select>
-          <div class="foot">Scores computed <b>within</b> selected IS/OS</div>
+          <div class="foot">Auto picks <b>OS if present</b>; otherwise falls back to IS.</div>
         </div>
       </div>
+
+      <div class="compareWrap">
+        <label class="toggle" title="Show OS vs IS side-by-side deltas (scores + key metrics).">
+          <input id="compareToggle" type="checkbox" />
+          Compare OS ↔ IS
+        </label>
+        <span class="hint">Comparison uses same (asof,symbol) and shows OS minus IS deltas per horizon.</span>
+      </div>
+
+      <div class="tagbar" id="tagBar"></div>
       <div class="foot" id="status" style="margin-top:8px"></div>
     </div>
 
@@ -179,11 +219,34 @@
           <option>4</option><option>5</option><option>6</option><option>7</option>
         </select>
         <span>anchors</span>
+        <span id="viewPill" class="pill tagUNK" style="margin-left:auto"></span>
       </div>
       <div style="margin-top:10px"><b>Risk-based (safer / better higher)</b></div>
       <div id="recsRisk" class="recs"></div>
       <div style="margin-top:10px"><b>Performance-based</b></div>
       <div id="recsPerf" class="recs"></div>
+
+      <div id="compareBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <div class="section-title">OS ↔ IS Horizon Deltas (OS − IS)</div>
+        <div class="foot">If a horizon exists in only one tag, it will be omitted here.</div>
+        <div class="tableWrap">
+          <table id="cmpTable">
+            <thead>
+              <tr>
+                <th>Horizon</th>
+                <th>Δ RiskScore</th>
+                <th>Δ PerfScore</th>
+                <th>Δ Sharpe</th>
+                <th>Δ MaxDD</th>
+                <th>Δ TotalPnL</th>
+                <th>Δ Win%</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -323,11 +386,46 @@ function yyyymmdd(asof){
   return (s.length === 8 && s.startsWith("20")) ? s : null;
 }
 
+/* --- Auto classify IS/OS as a safety check --- */
+function autoTag(asof, mstart, mend){
+  const A=String(asof||""), S=String(mstart||""), E=String(mend||"");
+  if(A.length!==8 || S.length!==8 || E.length!==8) return "UNK";
+  if(S > E) return "UNK";
+  return (S <= A && A <= E) ? "IS" : "OS";
+}
+function tagClass(t){
+  const T=String(t||"").toUpperCase();
+  if(T==="OS") return {cls:"tagOS", dot:"dotOS", label:"OS"};
+  if(T==="IS") return {cls:"tagIS", dot:"dotIS", label:"IS"};
+  return {cls:"tagUNK", dot:"dotUNK", label:"UNK"};
+}
+
 function populateAsofs(){
   const sel = document.getElementById('asof');
   const asofs = Array.from(new Set(RAW.map(r => yyyymmdd(r.asof)).filter(Boolean))).sort();
   sel.innerHTML = asofs.map(d=>`<option value="${d}">${d}</option>`).join('');
   if(asofs.length) sel.value = asofs[asofs.length-1];
+}
+
+/* Determine which tags exist for (asof,sym) */
+function tagsAvailable(asof, sym){
+  const SYM=String(sym||"").toUpperCase();
+  const ASOF=String(asof||"");
+  const tags = new Set(
+    RAW.filter(r => String(r.symbol||"").toUpperCase()===SYM && String(r.asof||"")===ASOF)
+       .map(r => String(r.tag||"").toUpperCase())
+       .filter(Boolean)
+  );
+  return Array.from(tags);
+}
+
+function resolveViewTag(viewMode, asof, sym){
+  const mode = String(viewMode||"AUTO").toUpperCase();
+  if(mode==="OS" || mode==="IS") return mode;
+  const avail = tagsAvailable(asof, sym);
+  if(avail.includes("OS")) return "OS";
+  if(avail.includes("IS")) return "IS";
+  return "OS";
 }
 
 /* Build rows for (asof,symbol,tag) */
@@ -347,8 +445,7 @@ function buildRowsFor(asof, sym, tag){
   const rows = slice.map(r => {
       const h = num(r.horizon_ms ?? r.h_ms ?? r.horizon, NaN);
 
-      // Pull fields from your Python JSON
-      const Sharpe   = num(r.Sharpe ?? r.sharpe, 0);
+      const Sharpe   = num(r.Sharpe ?? r.sharpe, NaN);
       const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades ?? r.count, 0);
       const MaxDD    = num(r.MaxDD ?? r.maxdd ?? r.mxDD, 0);
 
@@ -359,6 +456,12 @@ function buildRowsFor(asof, sym, tag){
 
       const total  = Number.isFinite(num(r.total_pnl_bps, NaN)) ? num(r.total_pnl_bps) : (avg * Turnover);
 
+      const mstart = r.model_start;
+      const mend   = r.model_end;
+      const backendTag = String(r.tag||"").toUpperCase();
+      const aTag = autoTag(ASOF, mstart, mend); // safety check
+      const tagMismatch = (backendTag !== "UNK" && aTag !== "UNK" && backendTag !== aTag);
+
       return {
         h_ms:h,
 
@@ -368,10 +471,15 @@ function buildRowsFor(asof, sym, tag){
         med_pnl_bps: med,
         win_pct: winpct,
 
-        Sharpe, Turnover, MaxDD,
+        Sharpe: (Number.isFinite(Sharpe) ? Sharpe : null),
+        Turnover, MaxDD,
 
-        model_start: r.model_start,
-        model_end: r.model_end,
+        tag: backendTag,
+        auto_tag: aTag,
+        tag_mismatch: tagMismatch,
+
+        model_start: mstart,
+        model_end: mend,
         src_file: r.src_file
       };
     })
@@ -397,43 +505,27 @@ function mm01(v, min, max){
 function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 
 /* ------------------------ Weights driven by sliders ------------------------ */
-/*
-  Risk tolerance:
-    Conservative => prioritize low drawdown + low turnover
-    Aggressive   => prioritize Sharpe more
-*/
 function riskWeights(x){
   const t = clamp01(x/100);
-  const sharpeW = 0.35 + 0.35*t;      // 0.35 -> 0.70
-  const ddW     = 0.45 - 0.25*t;      // 0.45 -> 0.20
-  const toW     = 0.20 - 0.10*t;      // 0.20 -> 0.10
+  const sharpeW = 0.35 + 0.35*t;
+  const ddW     = 0.45 - 0.25*t;
+  const toW     = 0.20 - 0.10*t;
   const s = sharpeW + ddW + toW;
   return { wS: sharpeW/s, wD: ddW/s, wT: toW/s };
 }
-
-/*
-  Performance tolerance:
-    Conservative => emphasize Win% more
-    Aggressive   => emphasize Total/Avg more
-*/
 function perfWeights(x){
   const t = clamp01(x/100);
-  const totW = 0.35 + 0.35*t;         // 0.35 -> 0.70
-  const avgW = 0.15 + 0.15*t;         // 0.15 -> 0.30
-  const winW = 0.50 - 0.50*t;         // 0.50 -> 0.00
+  const totW = 0.35 + 0.35*t;
+  const avgW = 0.15 + 0.15*t;
+  const winW = 0.50 - 0.50*t;
   const s = totW + avgW + winW;
   return { vTot: totW/s, vAvg: avgW/s, vWin: winW/s };
 }
 
 /* ------------------------ Scoring (INTUITIVE) ------------------------ */
-/*
-  RiskScoreN (0–10): higher = safer/better
-  Use per-day min-max normalization so MaxDD magnitude can't dominate.
-*/
 function recomputeScoresAndNormalize(){
   if(!lastRows.length) return;
 
-  // bounds within current selection (asof+sym+tag)
   const bSharpe = minMaxBounds(lastRows, 'Sharpe');
   const bTO     = minMaxBounds(lastRows, 'Turnover');
   const bDD     = minMaxBounds(lastRows, 'MaxDD');
@@ -446,16 +538,13 @@ function recomputeScoresAndNormalize(){
   const P = perfWeights(+document.getElementById('perf').value);
 
   lastRows.forEach(r=>{
-    // normalized components
-    const sharpeN = clamp01(mm01(r.Sharpe, bSharpe.min, bSharpe.max));              // higher better
-    const toN     = clamp01(mm01(r.Turnover, bTO.min, bTO.max));                    // higher worse
-    const ddN     = clamp01(mm01(r.MaxDD, bDD.min, bDD.max));                       // higher worse
+    const sharpeN = clamp01(mm01(num(r.Sharpe, NaN), bSharpe.min, bSharpe.max));
+    const toN     = clamp01(mm01(r.Turnover, bTO.min, bTO.max));
+    const ddN     = clamp01(mm01(r.MaxDD, bDD.min, bDD.max));
 
-    // risk raw: combine "good" directions
     const riskRaw01 = (W.wS * sharpeN) + (W.wT * (1 - toN)) + (W.wD * (1 - ddN));
     r.riskScoreN = 10 * clamp01(riskRaw01);
 
-    // perf raw: all are "higher better"
     const totN = clamp01(mm01(r.total_pnl_bps, bTot.min, bTot.max));
     const avgN = clamp01(mm01(r.avg_pnl_bps, bAvg.min, bAvg.max));
     const winN = clamp01(mm01(r.win_pct, bWin.min, bWin.max));
@@ -541,13 +630,18 @@ function renderTables(){
   rt.innerHTML = lastRows.map(r=>`
     <tr>
       <td>${r.h_ms}</td>
-      <td class="num">${num(r.Sharpe,0).toFixed(3)}</td>
+      <td class="num">${(r.Sharpe===null ? '—' : num(r.Sharpe,0).toFixed(3))}</td>
       <td class="num">${num(r.Turnover,0)}</td>
       <td class="num">${num(r.MaxDD,0).toFixed(3)}</td>
       <td class="num">${num(r.riskScoreN,0).toFixed(1)}</td>
     </tr>`).join('');
 
   const st=document.querySelector('#simTable tbody');
+  st.innerHTML = lastRows.map(r=>`
+    <tr>
+      <heinzer style="display:none"></tr>
+    `).join('');
+
   st.innerHTML = lastRows.map(r=>`
     <tr>
       <td>${r.h_ms}</td>
@@ -588,10 +682,106 @@ function syncTableFontSizes(){
   }
 }
 
+/* -------- Tag bar / status -------- */
+function renderTagBar(sym, asof, viewTag, rows){
+  const tagBar = document.getElementById('tagBar');
+  const viewPill = document.getElementById('viewPill');
+
+  const tinfo = tagClass(viewTag);
+  viewPill.className = `pill ${tinfo.cls}`;
+  viewPill.innerHTML = `<span class="badgeDot ${tinfo.dot}"></span><b>${tinfo.label}</b> view`;
+
+  if(!rows.length){
+    tagBar.innerHTML = '';
+    return;
+  }
+
+  // Collect metadata (use first row; all same file/window)
+  const r0 = rows[0];
+  const backend = String(r0.tag||"UNK");
+  const autoT = String(r0.auto_tag||"UNK");
+  const mismatch = rows.some(r=>r.tag_mismatch);
+
+  const b = tagClass(backend);
+  const a = tagClass(autoT);
+
+  const mismatchPill = mismatch
+    ? `<span class="pill tagBAD"><span class="badgeDot dotBAD"></span><b>TAG MISMATCH</b> backend=${backend} auto=${autoT}</span>`
+    : `<span class="pill tagOS" style="opacity:.75"><span class="badgeDot dotOS"></span>Tag check OK</span>`;
+
+  const backendPill = `<span class="pill ${b.cls}"><span class="badgeDot ${b.dot}"></span><b>backend:</b> ${backend}</span>`;
+  const autoPill    = `<span class="pill ${a.cls}"><span class="badgeDot ${a.dot}"></span><b>auto:</b> ${autoT}</span>`;
+
+  const winPill = `<span class="pill"><b>train window:</b> ${r0.model_start || '—'} → ${r0.model_end || '—'}</span>`;
+  const srcPill = `<span class="pill"><b>src:</b> ${r0.src_file || '—'}</span>`;
+
+  tagBar.innerHTML = backendPill + autoPill + mismatchPill + winPill + srcPill;
+}
+
+/* -------- Compare OS vs IS (same asof/sym) -------- */
+function renderCompare(asof, sym){
+  const box = document.getElementById('compareBox');
+  const on = document.getElementById('compareToggle').checked;
+  if(!on){
+    box.style.display = 'none';
+    return;
+  }
+
+  // Build both
+  const os = buildRowsFor(asof, sym, "OS").rows;
+  const is = buildRowsFor(asof, sym, "IS").rows;
+  if(!os.length || !is.length){
+    box.style.display = 'block';
+    document.querySelector('#cmpTable tbody').innerHTML =
+      `<tr><td colspan="7" class="muted">Need both OS and IS for this (asof,symbol). Found OS=${os.length} IS=${is.length}.</td></tr>`;
+    return;
+  }
+
+  // Recompute scores for each set under current sliders
+  const save = lastRows;
+
+  lastRows = os.slice(); recomputeScoresAndNormalize();
+  const osMap = new Map(lastRows.map(r=>[r.h_ms, {...r}]));
+
+  lastRows = is.slice(); recomputeScoresAndNormalize();
+  const isMap = new Map(lastRows.map(r=>[r.h_ms, {...r}]));
+
+  lastRows = save;
+
+  const common = Array.from(osMap.keys()).filter(h=>isMap.has(h)).sort((a,b)=>a-b);
+
+  const tbody = document.querySelector('#cmpTable tbody');
+  if(!common.length){
+    tbody.innerHTML = `<tr><td colspan="7" class="muted">No overlapping horizons between OS and IS.</td></tr>`;
+    box.style.display = 'block';
+    return;
+  }
+
+  const fmt = (v, d=2)=> (Number.isFinite(v) ? (+v).toFixed(d) : '—');
+
+  tbody.innerHTML = common.map(h=>{
+    const o = osMap.get(h), i = isMap.get(h);
+    return `
+      <tr>
+        <td>${h}</td>
+        <td class="num">${fmt(o.riskScoreN - i.riskScoreN, 2)}</td>
+        <td class="num">${fmt(o.perfScoreN - i.perfScoreN, 2)}</td>
+        <td class="num">${fmt((o.Sharpe??0) - (i.Sharpe??0), 3)}</td>
+        <td class="num">${fmt(o.MaxDD - i.MaxDD, 3)}</td>
+        <td class="num">${fmt(o.total_pnl_bps - i.total_pnl_bps, 3)}</td>
+        <td class="num">${fmt(o.win_pct - i.win_pct, 2)}</td>
+      </tr>`;
+  }).join('');
+
+  box.style.display = 'block';
+}
+
 async function render(){
   const asof = document.getElementById('asof').value;
   const sym  = document.getElementById('instrument').value;
-  const tag  = document.getElementById('tagSel').value;
+
+  const viewMode = document.getElementById('tagSel').value;
+  const tag = resolveViewTag(viewMode, asof, sym);
 
   const key = `${asof}_${sym}_${tag}`;
   const seq = ++renderSeq; currentKey = key;
@@ -606,6 +796,8 @@ async function render(){
   document.getElementById('anchorChecks').innerHTML = '';
   document.getElementById('anchorChecksRisk').innerHTML = '';
   document.getElementById('status').textContent = '';
+  document.getElementById('tagBar').innerHTML = '';
+  document.getElementById('compareBox').style.display = 'none';
 
   if(!cache[key]){
     cache[key] = buildRowsFor(asof, sym, tag);
@@ -616,12 +808,17 @@ async function render(){
   lastRows = (built.rows || []).slice().sort((a,b)=>a.h_ms-b.h_ms);
 
   if(!lastRows.length){
+    const avail = tagsAvailable(asof, sym);
     document.getElementById('recsRisk').innerHTML =
-      `<span class="pill warn">No data for ${sym} • ${asof} • ${tag}</span>`;
+      `<span class="pill warn">No rows for ${sym} • ${asof} • tag=${tag} (available: ${avail.join(', ') || 'none'})</span>`;
     document.getElementById('status').textContent =
-      `Source: ${JSON_URL} • No rows for ${sym} ${asof} ${tag}`;
+      `Source: ${JSON_URL} • No rows for ${sym} asof=${asof} tag=${tag}`;
+    renderTagBar(sym, asof, tag, []);
     return;
   }
+
+  // Visible differentiation + safety check pills
+  renderTagBar(sym, asof, tag, lastRows);
 
   recomputeScoresAndNormalize();
   buildAnchorChecksRisk(lastRows); updateRiskChart();
@@ -631,8 +828,11 @@ async function render(){
   const dupMsg = (built.meta && built.meta.dup_horizons > 0)
     ? ` • WARNING: dup_horizons=${built.meta.dup_horizons}`
     : '';
+  const mismatch = lastRows.some(r=>r.tag_mismatch) ? " • TAG_MISMATCH=YES" : "";
   document.getElementById('status').textContent =
-    `Source: ${JSON_URL} • ${sym} • asof=${asof} • tag=${tag} • rows=${lastRows.length}${dupMsg}`;
+    `Source: ${JSON_URL} • ${sym} • asof=${asof} • view=${tag}${mismatch} • rows=${lastRows.length}${dupMsg}`;
+
+  renderCompare(asof, sym);
 }
 
 ['asof','instrument','tagSel','topk'].forEach(id=>{
@@ -642,15 +842,23 @@ async function render(){
   });
 });
 
+document.getElementById('compareToggle').addEventListener('change', ()=>{
+  render(); // simplest: rerender compare table
+});
+
 ['risk','perf'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
     if(!lastRows.length) return;
-    // these MUST change when slider moves
     updateRiskChart();
     updatePerfChart();
     updateRecommendations();
     syncTableFontSizes();
     syncChartCardHeights();
+
+    // update compare deltas live
+    const asof = document.getElementById('asof').value;
+    const sym  = document.getElementById('instrument').value;
+    renderCompare(asof, sym);
   });
 });
 
@@ -666,12 +874,6 @@ window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeigh
     });
 
     populateAsofs();
-
-    const tags = Array.from(new Set(RAW.map(r=>String(r.tag||"").toUpperCase()).filter(Boolean)));
-    if(tags.length === 1){
-      document.getElementById('tagSel').value = tags[0];
-    }
-
     render();
   }catch(e){
     document.getElementById('recsRisk').innerHTML = `<span class="pill warn">${e?.message || e}</span>`;
