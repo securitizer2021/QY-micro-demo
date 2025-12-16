@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>IDT Anchor Horizon Recommender — IS/OS + Charts</title>
+
 <style>
   :root{
     --bg:#0e1116; --card:#151922; --text:#e8eaed; --muted:#9aa0a6; --border:#2a2f3a;
@@ -12,7 +13,7 @@
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{max-width:1280px;margin:0 auto;padding:24px}
   .sub{color:var(--muted);margin-bottom:20px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0}
   .controls{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px}
   select,input[type="range"]{width:100%}
   .slider-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
@@ -23,8 +24,14 @@
   .pill.alt {background:rgba(244,180,0,.12);border-color:#564600;color:#ffe9ad}
   .recs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 
-  .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
-  .pane{display:flex;flex-direction:column;gap:16px}
+  .panes{
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+    gap:16px;
+    margin-top:12px;
+    align-items:start;
+  }
+  .pane{display:flex;flex-direction:column;gap:16px;min-width:0}
 
   .chartbox{position:relative;height:var(--chart-h);width:100%}
   .chartbox canvas{
@@ -32,10 +39,40 @@
     background:#0f1420;border:1px solid var(--border);border-radius:12px;padding:8px;
   }
 
-  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:visible;table-layout:auto}
-  thead th{position:sticky;top:0;background:#1b2130;padding:10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
-  tbody td{padding:10px;border-top:1px solid var(--border);vertical-align:top;white-space:nowrap}
+  .tableWrap{overflow-x:auto; max-width:100%;}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:visible;
+    table-layout:fixed;
+  }
+  thead th{
+    background:#1b2130;
+    padding:10px;
+    border-bottom:1px solid var(--border);
+    text-align:left;
+    white-space:normal;
+    line-height:1.15;
+    font-size:12px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  tbody td{
+    padding:10px;
+    border-top:1px solid var(--border);
+    vertical-align:top;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
   .num{font-variant-numeric:tabular-nums;text-align:right}
+  table thead th:first-child{ text-align:left; }
+  table thead th:not(:first-child){ text-align:right; }
+  table tbody td.num{ text-align:right; }
+
   .foot{margin-top:10px;color:var(--muted);font-size:12px}
   .section-title{font-weight:700;margin-bottom:6px}
   .kwrap{display:flex;gap:8px;align-items:center}
@@ -43,27 +80,9 @@
   .panel-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
   .muted{color:var(--muted)}
 
-  .tt{position:relative; cursor:help; display:inline-block}
-  .tt::after{
-    content: attr(data-tip);
-    position:absolute; left:0; bottom:calc(100% + 8px);
-    background:#0f1420; color:#e8eaed; border:1px solid #2a2f3a;
-    padding:8px 10px; border-radius:8px; min-width:220px; max-width:340px;
-    font-size:12px; line-height:1.35; white-space:normal;
-    box-shadow:0 6px 18px rgba(0,0,0,.35);
-    opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .15s ease, transform .15s ease;
-    z-index:10;
-  }
-  .tt::before{
-    content:""; position:absolute; left:10px; bottom:calc(100% + 4px);
-    border:6px solid transparent; border-top-color:#2a2f3a; opacity:0; transform:translateY(6px); transition:opacity .15s ease, transform .15s ease;
-    z-index:11;
-  }
-  .tt:hover::after, .tt:hover::before{opacity:1; transform:translateY(0)}
-
   #riskTable, #simTable { font-size:12px; }
+  #simTable th:last-child, #simTable td:last-child{ min-width:120px; width:120px; }
 
-  /* horizons area scroll box so it never overlaps chart */
   .chk-scroll{
     max-height: 98px;
     overflow:auto;
@@ -73,9 +92,18 @@
     background:#101624;
   }
   .chk-wrap{display:flex;gap:8px;flex-wrap:wrap}
-  .chk-wrap label{display:inline-flex;gap:6px;align-items:center;background:#121a2a;border:1px solid var(--border);padding:4px 8px;border-radius:999px}
+  .chk-wrap label{
+    display:inline-flex;gap:6px;align-items:center;
+    background:#121a2a;border:1px solid var(--border);
+    padding:4px 8px;border-radius:999px
+  }
 
   .chart-spacer{height:10px}
+
+  @media (max-width: 980px){
+    .controls{grid-template-columns:1fr}
+    .panes{grid-template-columns:1fr}
+  }
 </style>
 </head>
 
@@ -85,11 +113,12 @@
       <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
         <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo" style="height:36px;width:auto;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25)">
       </a>
-      <h2 style="margin:0">IDT Trading Simulation</h2>
+      <h2 style="margin:0">IDT Simulation</h2>
   </div>
 
   <div class="sub">
-    <strong>Daily Intra-Day</strong> trading simulation using a rolling 30-day training window on L1/L2/L3 features. Your risk and performance tolerances rank anchor horizons to surface the best-fit trading profiles.
+    <strong>Daily intra-day trading</strong> simulation using a rolling 30-day training window on L1/L2/L3 features.
+    Your risk and performance tolerances rank anchor horizons to surface the best-fit trading profiles.
   </div>
 
   <div class="controls">
@@ -113,27 +142,29 @@
             <option value="OS" selected>OS</option>
             <option value="IS">IS</option>
           </select>
-          <div class="foot">Computed by asof vs model window</div>
+          <div class="foot">Scores computed <b>within</b> selected IS/OS</div>
         </div>
       </div>
       <div class="foot" id="status" style="margin-top:8px"></div>
     </div>
 
     <div class="card">
-      <label for="risk">Risk Scale</label>
+      <label for="risk">Risk Tolerance</label>
       <input id="risk" type="range" min="0" max="100" step="1" value="50" />
       <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
       <div class="foot">
-        Risk Score = wS·Sharpe − wT·Turnover − wD·MaxDD (scaled 0–10).
+        <b>Risk Score (0–10): safer/better is higher.</b><br/>
+        Computed from normalized Sharpe (good ↑), Turnover (good ↓), MaxDD (good ↓). Slider shifts their weights.
       </div>
     </div>
 
     <div class="card">
-      <label for="perf">Performance Scale</label>
+      <label for="perf">Performance Tolerance</label>
       <input id="perf" type="range" min="0" max="100" step="1" value="60" />
       <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
       <div class="foot">
-        Perf Score = vTot·(Total/100) + vAvg·Avg + vWin·(Win%/100) − vC·(Turnover/2000) − vD·MaxDD (scaled 0–10).
+        <b>Perf Score (0–10): better is higher.</b><br/>
+        Computed from normalized Total PnL (↑), Avg PnL (↑), Win% (↑). Slider shifts their weights.
       </div>
     </div>
   </div>
@@ -149,7 +180,7 @@
         </select>
         <span>anchors</span>
       </div>
-      <div style="margin-top:10px"><b>Risk-based</b></div>
+      <div style="margin-top:10px"><b>Risk-based (safer / better higher)</b></div>
       <div id="recsRisk" class="recs"></div>
       <div style="margin-top:10px"><b>Performance-based</b></div>
       <div id="recsPerf" class="recs"></div>
@@ -167,7 +198,6 @@
             <option value="Sharpe" selected>Sharpe</option>
             <option value="MaxDD">MaxDD</option>
             <option value="Turnover">Turnover</option>
-            <option value="Utility">Utility</option>
             <option value="riskScoreN">Risk Score (0–10)</option>
           </select>
           <span class="muted">Anchors</span>
@@ -185,20 +215,19 @@
 
       <div class="card">
         <div class="section-title">Risk Metrics</div>
-        <table id="riskTable">
-          <thead>
-            <tr>
-              <th>Horizon (ms)</th>
-              <!-- <th>τ</th>
-              <th>q</th> -->
-              <th>Sharpe</th>
-              <th>Turnover</th>
-              <th>MaxDD</th>
-              <th>Utility</th>
-              <th>Risk Score (0–10)</th>
-            </tr>
-          </thead><tbody></tbody>
-        </table>
+        <div class="tableWrap">
+          <table id="riskTable">
+            <thead>
+              <tr>
+                <th>Horizon (ms)</th>
+                <th>Sharpe</th>
+                <th>Turnover</th>
+                <th>MaxDD</th>
+                <th>Risk Score (0–10)</th>
+              </tr>
+            </thead><tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -231,22 +260,21 @@
 
       <div class="card">
         <div class="section-title">Simulation Results</div>
-        <table id="simTable">
-          <thead>
-            <tr>
-              <th>Horizon</th>
-              <th>Trades</th>
-              <th>Total PnL (bps)</th>
-              <th>Avg PnL</th>
-              <th>Median PnL</th>
-              <th>Profit</th>
-              <th>Loss</th>
-              <th>Flat</th>
-              <th>Win %</th>
-              <th>Perf Score (0–10)</th>
-            </tr>
-          </thead><tbody></tbody>
-        </table>
+        <div class="tableWrap">
+          <table id="simTable">
+            <thead>
+              <tr>
+                <th>Horizon</th>
+                <th>Trades</th>
+                <th>Total PnL (bps)</th>
+                <th>Avg PnL</th>
+                <th>Median PnL</th>
+                <th>Win %</th>
+                <th>Perf Score (0–10)</th>
+              </tr>
+            </thead><tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -259,7 +287,7 @@ const JSON_URL = "./idt_daily_data.json";
 
 /* -------- Colors per metric -------- */
 const METRIC_COLORS = {
-  Sharpe:'#4ade80', MaxDD:'#ef4444', Turnover:'#f59e0b', Utility:'#22c55e', riskScoreN:'#06b6d4',
+  Sharpe:'#4ade80', MaxDD:'#ef4444', Turnover:'#f59e0b', riskScoreN:'#06b6d4',
   total_pnl_bps:'#60a5fa', avg_pnl_bps:'#a78bfa', med_pnl_bps:'#ec4899', win_pct:'#10b981', trades:'#f97316', perfScoreN:'#eab308'
 };
 
@@ -319,40 +347,28 @@ function buildRowsFor(asof, sym, tag){
   const rows = slice.map(r => {
       const h = num(r.horizon_ms ?? r.h_ms ?? r.horizon, NaN);
 
-      // Risk
+      // Pull fields from your Python JSON
       const Sharpe   = num(r.Sharpe ?? r.sharpe, 0);
-      const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades, 0);
-      const MaxDD    = num(r.MaxDD ?? r.mxDD ?? r.maxdd, 0);
-      const Utility  = Number.isFinite(num(r.Utility, NaN)) ? num(r.Utility) : (Sharpe - 0.001*Turnover - 0.5*MaxDD);
+      const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades ?? r.count, 0);
+      const MaxDD    = num(r.MaxDD ?? r.maxdd ?? r.mxDD, 0);
 
-      // Performance (prefer explicit)
-      const avg   = num(r.avg_pnl_bps ?? r.mean_trades_bps ?? r.mean_all_bps, 0);
-      const total = Number.isFinite(num(r.total_pnl_bps, NaN)) ? num(r.total_pnl_bps) : (avg * Turnover);
-      const med   = num(r.med_pnl_bps ?? r.median_bps, 0);
+      const avg    = num(r.avg_pnl_bps ?? r.mean_trades_bps ?? r.mean_all_bps, 0);
+      const med    = num(r.med_pnl_bps ?? r.median_bps, 0);
       const winpct = Number.isFinite(num(r.win_pct, NaN)) ? num(r.win_pct)
                    : (Number.isFinite(num(r.win_rate, NaN)) ? num(r.win_rate) : 0);
 
-      const profit = num(r.profit_trades ?? r.profit, 0);
-      const loss   = num(r.losing_trades ?? r.loss, 0);
-      const flat   = num(r.flat, 0);
-
-      const tau = Number.isFinite(num(r.tau, NaN)) ? num(r.tau) : NaN;
-      const q   = Number.isFinite(num(r.q, NaN)) ? num(r.q) : NaN;
+      const total  = Number.isFinite(num(r.total_pnl_bps, NaN)) ? num(r.total_pnl_bps) : (avg * Turnover);
 
       return {
-        h_ms:h, tau, q,
+        h_ms:h,
 
-        // used by charts/tables
         trades:Turnover,
         total_pnl_bps: total,
         avg_pnl_bps: avg,
         med_pnl_bps: med,
-        profit_trades: profit,
-        losing_trades: loss,
-        flat: flat,
         win_pct: winpct,
 
-        Sharpe, Turnover, MaxDD, Utility,
+        Sharpe, Turnover, MaxDD,
 
         model_start: r.model_start,
         model_end: r.model_end,
@@ -366,69 +382,87 @@ function buildRowsFor(asof, sym, tag){
   return { rows, meta:{asof:ASOF,symbol:SYM,tag:TAG,rows:rows.length,dup_horizons:dup} };
 }
 
-/* ------------------------ Scoring + Normalization ------------------------ */
-/* Risk: keep as-is */
+/* ------------------------ Normalization helpers ------------------------ */
+function minMaxBounds(rows, key){
+  const vals = rows.map(r => +r[key]).filter(v => Number.isFinite(v));
+  if(!vals.length) return {min:0, max:0};
+  return {min: Math.min(...vals), max: Math.max(...vals)};
+}
+function mm01(v, min, max){
+  if(!Number.isFinite(v)) return 0.5;
+  const span = (max - min);
+  if(!Number.isFinite(span) || span <= 1e-12) return 0.5;
+  return (v - min) / span;
+}
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+/* ------------------------ Weights driven by sliders ------------------------ */
+/*
+  Risk tolerance:
+    Conservative => prioritize low drawdown + low turnover
+    Aggressive   => prioritize Sharpe more
+*/
 function riskWeights(x){
-  const t=x/100;
-  return {
-    wS: 0.55 + 0.35*t,     // emphasize Sharpe more as user goes aggressive
-    wT: 0.0030 - 0.0020*t, // penalize turnover less when aggressive
-    wD: 0.30  - 0.18*t     // penalize drawdown less when aggressive
-  };
+  const t = clamp01(x/100);
+  const sharpeW = 0.35 + 0.35*t;      // 0.35 -> 0.70
+  const ddW     = 0.45 - 0.25*t;      // 0.45 -> 0.20
+  const toW     = 0.20 - 0.10*t;      // 0.20 -> 0.10
+  const s = sharpeW + ddW + toW;
+  return { wS: sharpeW/s, wD: ddW/s, wT: toW/s };
 }
 
-/* Perf: IMPORTANT — separate from risk, and include win% explicitly */
+/*
+  Performance tolerance:
+    Conservative => emphasize Win% more
+    Aggressive   => emphasize Total/Avg more
+*/
 function perfWeights(x){
-  const t=x/100;
-  return {
-    vTot: 0.20 + 0.55*t,   // aggressive cares more about total outcome
-    vAvg: 0.10 + 0.20*t,   // and average per-trade
-    vWin: 0.10 + 0.20*(1-t), // conservative cares more about hit-rate
-    vC:   1.10 - 0.75*t,   // turnover penalty decreases with aggressiveness
-    vD:   0.35 - 0.20*t    // drawdown penalty decreases with aggressiveness
-  };
+  const t = clamp01(x/100);
+  const totW = 0.35 + 0.35*t;         // 0.35 -> 0.70
+  const avgW = 0.15 + 0.15*t;         // 0.15 -> 0.30
+  const winW = 0.50 - 0.50*t;         // 0.50 -> 0.00
+  const s = totW + avgW + winW;
+  return { vTot: totW/s, vAvg: avgW/s, vWin: winW/s };
 }
 
-function scoreRisk(r,W){
-  return W.wS*r.Sharpe - W.wT*r.Turnover - W.wD*r.MaxDD;
-}
-
-function scorePerf(r,P){
-  const totalTerm = (num(r.total_pnl_bps,0) / 100.0);
-  const avgTerm   = num(r.avg_pnl_bps,0);
-  const winTerm   = (num(r.win_pct,0) / 100.0);
-
-  // NOTE: penalize turnover on a milder scale for IDT (per 2000 trades)
-  const turnTerm  = (num(r.Turnover,0) / 2000.0);
-
-  return P.vTot*totalTerm + P.vAvg*avgTerm + P.vWin*winTerm - P.vC*turnTerm - P.vD*num(r.MaxDD,0);
-}
-
-function normalizeTo0_10(rows, keyRaw, keyNorm){
-  const vals = rows.map(r => r[keyRaw]).filter(v => Number.isFinite(v));
-  const minV = Math.min(...vals), maxV = Math.max(...vals);
-  const span = maxV - minV;
-
-  rows.forEach(r=>{
-    let n = 5;
-    if (Number.isFinite(r[keyRaw]) && span > 1e-12){
-      n = 10 * ((r[keyRaw] - minV) / span);
-    }
-    r[keyNorm] = n;
-  });
-}
-
+/* ------------------------ Scoring (INTUITIVE) ------------------------ */
+/*
+  RiskScoreN (0–10): higher = safer/better
+  Use per-day min-max normalization so MaxDD magnitude can't dominate.
+*/
 function recomputeScoresAndNormalize(){
-  const W=riskWeights(+document.getElementById('risk').value);
-  const P=perfWeights(+document.getElementById('perf').value);
+  if(!lastRows.length) return;
+
+  // bounds within current selection (asof+sym+tag)
+  const bSharpe = minMaxBounds(lastRows, 'Sharpe');
+  const bTO     = minMaxBounds(lastRows, 'Turnover');
+  const bDD     = minMaxBounds(lastRows, 'MaxDD');
+
+  const bTot    = minMaxBounds(lastRows, 'total_pnl_bps');
+  const bAvg    = minMaxBounds(lastRows, 'avg_pnl_bps');
+  const bWin    = minMaxBounds(lastRows, 'win_pct');
+
+  const W = riskWeights(+document.getElementById('risk').value);
+  const P = perfWeights(+document.getElementById('perf').value);
 
   lastRows.forEach(r=>{
-    r._riskRaw = scoreRisk(r, W);
-    r._perfRaw = scorePerf(r, P);
-  });
+    // normalized components
+    const sharpeN = clamp01(mm01(r.Sharpe, bSharpe.min, bSharpe.max));              // higher better
+    const toN     = clamp01(mm01(r.Turnover, bTO.min, bTO.max));                    // higher worse
+    const ddN     = clamp01(mm01(r.MaxDD, bDD.min, bDD.max));                       // higher worse
 
-  normalizeTo0_10(lastRows, '_riskRaw', 'riskScoreN');
-  normalizeTo0_10(lastRows, '_perfRaw', 'perfScoreN');
+    // risk raw: combine "good" directions
+    const riskRaw01 = (W.wS * sharpeN) + (W.wT * (1 - toN)) + (W.wD * (1 - ddN));
+    r.riskScoreN = 10 * clamp01(riskRaw01);
+
+    // perf raw: all are "higher better"
+    const totN = clamp01(mm01(r.total_pnl_bps, bTot.min, bTot.max));
+    const avgN = clamp01(mm01(r.avg_pnl_bps, bAvg.min, bAvg.max));
+    const winN = clamp01(mm01(r.win_pct, bWin.min, bWin.max));
+
+    const perfRaw01 = (P.vTot * totN) + (P.vAvg * avgN) + (P.vWin * winN);
+    r.perfScoreN = 10 * clamp01(perfRaw01);
+  });
 }
 
 /* ------------------------ Chart builders ------------------------ */
@@ -510,7 +544,6 @@ function renderTables(){
       <td class="num">${num(r.Sharpe,0).toFixed(3)}</td>
       <td class="num">${num(r.Turnover,0)}</td>
       <td class="num">${num(r.MaxDD,0).toFixed(3)}</td>
-      <td class="num">${num(r.Utility,0).toFixed(3)}</td>
       <td class="num">${num(r.riskScoreN,0).toFixed(1)}</td>
     </tr>`).join('');
 
@@ -522,9 +555,6 @@ function renderTables(){
       <td class="num">${num(r.total_pnl_bps,0).toFixed(3)}</td>
       <td class="num">${num(r.avg_pnl_bps,0).toFixed(3)}</td>
       <td class="num">${num(r.med_pnl_bps,0).toFixed(3)}</td>
-      <td class="num">${num(r.profit_trades,0)}</td>
-      <td class="num">${num(r.losing_trades,0)}</td>
-      <td class="num">${num(r.flat,0)}</td>
       <td class="num">${num(r.win_pct,0).toFixed(1)}</td>
       <td class="num">${num(r.perfScoreN,0).toFixed(1)}</td>
     </tr>`).join('');
@@ -532,8 +562,6 @@ function renderTables(){
 
 function updateRecommendations(){
   const topk = +document.getElementById('topk').value || 3;
-
-  // IMPORTANT: recompute here too (so recs update even if chart metric doesn't change)
   recomputeScoresAndNormalize();
 
   const topRisk = lastRows.slice().sort((a,b)=>b.riskScoreN-a.riskScoreN).slice(0,topk);
@@ -617,9 +645,10 @@ async function render(){
 ['risk','perf'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
     if(!lastRows.length) return;
+    // these MUST change when slider moves
     updateRiskChart();
     updatePerfChart();
-    updateRecommendations();  // <- ensure top-k changes even if chart selection unchanged
+    updateRecommendations();
     syncTableFontSizes();
     syncChartCardHeights();
   });
@@ -633,6 +662,7 @@ window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeigh
     RAW.forEach(r => {
       if(r.symbol) r.symbol = String(r.symbol).toUpperCase();
       if(r.tag) r.tag = String(r.tag).toUpperCase();
+      if(r.asof) r.asof = String(r.asof);
     });
 
     populateAsofs();
