@@ -28,6 +28,7 @@
       border: 1px solid rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
     }
+    .col-split { border-left: 2px solid rgba(255,255,255,0.15); }
   </style>
   
   <!-- Cloudflare Web Analytics -->
@@ -74,6 +75,47 @@
           </div>
         </nav>
   </header>
+
+<!-- IDT WIN RATE SUMMARY (per symbol) -->
+<section class="py-10">
+  <h2 class="text-3xl font-bold text-center mb-4">IDT Win Rate Summary</h2>
+  <p class="text-center text-gray-300 mb-6">
+    For each symbol: top horizon by best 3-month average win rate, and best win rate on the most recent date.
+  </p>
+
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="glass rounded-xl p-4 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="border-b border-gray-700 text-gray-200">
+          <!-- Top grouping row -->
+          <tr>
+            <th class="py-2 pr-4 text-left"></th>
+
+            <th class="py-2 pr-4 text-center" colspan="3">OS</th>
+            <th class="py-2 pr-4 text-center col-split" colspan="3">IS</th>
+          </tr>
+
+          <!-- Bottom header row (ALL columns aligned here) -->
+          <tr class="text-gray-300">
+            <th class="py-2 pr-4 text-left underline">Symbol</th>
+
+            <th class="py-2 pr-4 text-left underline">Top (Best 3-day Avg)</th>
+            <th class="py-2 pr-4 text-left underline">Most Recent Best</th>
+            <th class="py-2 pr-4 text-left underline">Date</th>
+
+            <th class="py-2 pr-4 text-left underline col-split">Top (Best 3-day Avg)</th>
+            <th class="py-2 pr-4 text-left underline">Most Recent Best</th>
+            <th class="py-2 pr-4 text-left underline">Date</th>
+          </tr>
+        </thead>
+
+        <tbody id="idtWinrateTbody"></tbody>
+      </table>
+
+      <div id="idtWinrateMeta" class="text-xs text-gray-400 mt-3"></div>
+    </div>
+  </div>
+</section>
 
 <!-- HERO SECTION -->
 <section id="hero" class="relative bg-indigo-900 overflow-hidden">
@@ -238,6 +280,239 @@
         dropdownMenu.classList.add('hidden');
       }
     });
+</script>
+<script>
+(function () {
+  const tbody = document.getElementById("idtWinrateTbody");
+  const meta  = document.getElementById("idtWinrateMeta");
+
+  const EXCLUDE_ASOF = new Set(["20251226","20251224"]);
+  const MIN_DAYS_FOR_TOP = 3;          // require horizon present in all last 3 days for "Top"
+  const ACT_TARGET_TRADES = 1500;      // tune: trades that corresponds to Activity=100
+
+  function parseAsOfYYYYMMDD(asof) {
+    const s = String(asof || "").trim();
+    if (!/^\d{8}$/.test(s)) return null;
+    return new Date(Date.UTC(
+      Number(s.slice(0, 4)),
+      Number(s.slice(4, 6)) - 1,
+      Number(s.slice(6, 8))
+    ));
+  }
+
+  function fmtDate(d) {
+    return d ? d.toISOString().slice(0, 10) : "—";
+  }
+
+  function normalizeWR(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return n > 1 ? n / 100 : n; // supports 60.2 or 0.602
+  }
+
+  function pct(x) {
+    return Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : "—";
+  }
+
+  function clamp01(x) {
+    if (!Number.isFinite(x)) return 0;
+    return Math.max(0, Math.min(1, x));
+  }
+
+  function formatHorizon(ms) {
+    const v = Number(ms);
+    if (!Number.isFinite(v)) return String(ms);
+    if (v < 60_000) return `${Math.round(v / 1000)}s`;
+    if (v < 3_600_000) return `${(v / 60000).toFixed(1)}m`;
+    return `${(v / 3_600_000).toFixed(2)}h`;
+  }
+
+  // Activity score 0..100 based on num_trades
+  function activityScore(numTrades) {
+    const n = Number(numTrades);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.round(100 * clamp01(n / ACT_TARGET_TRADES));
+  }
+
+  // Confidence score 0..100:
+  // - edge = how far above 50% (0..1)
+  // - perfScoreN (0..10) -> (0..1)
+  // - multiply by sqrt(activity) to penalize low activity
+  function confidenceScore(winRate01, perfScoreN, act100) {
+    const wr = Number(winRate01);
+    const perf = Number(perfScoreN);
+
+    const edge = clamp01((wr - 0.50) / 0.50);        // 50% -> 0, 100% -> 1
+    const perf01 = clamp01(perf / 10.0);             // 0..10 -> 0..1
+    const act01 = clamp01(Number(act100) / 100.0);   // 0..100 -> 0..1
+
+    const base = 0.65 * edge + 0.35 * perf01;
+    const scaled = base * Math.sqrt(act01);
+
+    return Math.round(100 * scaled);
+  }
+
+  function groupBySymbol(rows) {
+    const out = {};
+    for (const r of rows) {
+      const sym = r?.symbol;
+      if (!sym) continue;
+      out[sym] ??= [];
+      out[sym].push(r);
+    }
+    return out;
+  }
+
+  // Computes per symbol+tag:
+  // - Top horizon by best 3-day avg (eligible only if appears on all 3 days)
+  // - Recent best horizon on latest day
+  // Each includes Activity/Confidence.
+  function computeTagReport(rows, tag) {
+    const data = rows
+      .filter(r => r?.tag === tag)
+      .filter(r => !EXCLUDE_ASOF.has(String(r.asof || "").trim()))
+      .map(r => ({
+        d: parseAsOfYYYYMMDD(r.asof),
+        h: (r.horizon_ms != null) ? String(r.horizon_ms) : null,
+        wr: normalizeWR(r.win_rate),
+        num_trades: Number(r.num_trades ?? r.count ?? 0),
+        perfScoreN: Number(r.perfScoreN ?? 0),
+      }))
+      .filter(x => x.d && x.h && x.wr !== null);
+
+    if (!data.length) return null;
+
+    // Latest date
+    const latestDate = data.reduce((m, x) => (x.d > m ? x.d : m), data[0].d);
+    const latestKey  = latestDate.getTime();
+
+    // Recent best = max win_rate across horizons on latest day
+    let bestRecent = null;
+    for (const x of data) {
+      if (x.d.getTime() !== latestKey) continue;
+      if (!bestRecent || x.wr > bestRecent.wr) bestRecent = x;
+    }
+
+    let bestRecentPack = null;
+    if (bestRecent) {
+      const act = activityScore(bestRecent.num_trades);
+      const conf = confidenceScore(bestRecent.wr, bestRecent.perfScoreN, act);
+      bestRecentPack = { ...bestRecent, act, conf };
+    }
+
+    // Last 3 unique days (desc)
+    const last3Days = Array.from(new Set(data.map(x => x.d.getTime())))
+      .sort((a, b) => b - a)
+      .slice(0, 3);
+
+    // Aggregate per horizon over last3Days, track which days it appears
+    const agg = new Map(); // h -> { sumWr, sumTrades, sumPerf, days:Set }
+    for (const x of data) {
+      const dayKey = x.d.getTime();
+      if (!last3Days.includes(dayKey)) continue;
+
+      const cur = agg.get(x.h) || { sumWr: 0, sumTrades: 0, sumPerf: 0, days: new Set() };
+      cur.sumWr += x.wr;
+      cur.sumTrades += (Number.isFinite(x.num_trades) ? x.num_trades : 0);
+      cur.sumPerf += (Number.isFinite(x.perfScoreN) ? x.perfScoreN : 0);
+      cur.days.add(dayKey);
+      agg.set(x.h, cur);
+    }
+
+    // Select top horizon by avg win_rate, eligible only if it shows up on all 3 days
+    let top = null;
+    for (const [h, v] of agg.entries()) {
+      const dayCount = v.days.size;
+      if (dayCount < Math.min(MIN_DAYS_FOR_TOP, last3Days.length)) continue;
+
+      const avgWr = v.sumWr / dayCount;
+      const avgTrades = v.sumTrades / dayCount;
+      const avgPerf = v.sumPerf / dayCount;
+
+      const act = activityScore(avgTrades);
+      const conf = confidenceScore(avgWr, avgPerf, act);
+
+      if (!top || avgWr > top.avgWr) {
+        top = { h, avgWr, act, conf };
+      }
+    }
+
+    return { latestDate, top, bestRecent: bestRecentPack };
+  }
+
+  function cellTextTop(x) {
+    if (!x) return "—";
+    return `
+      <div>
+        <div>${formatHorizon(x.h)} (avg ${pct(x.avgWr)})</div>
+        <div class="text-xs text-gray-400 mt-0.5">Act ${x.act} · Conf ${x.conf}</div>
+      </div>
+    `;
+  }
+
+  function cellTextRecent(x) {
+    if (!x) return "—";
+    return `
+      <div>
+        <div>${formatHorizon(x.h)}: ${pct(x.wr)}</div>
+        <div class="text-xs text-gray-400 mt-0.5">Act ${x.act} · Conf ${x.conf}</div>
+      </div>
+    `;
+  }
+
+  function renderRow(sym, rptOS, rptIS) {
+    const tr = document.createElement("tr");
+    tr.className = "border-b border-gray-800";
+
+    tr.innerHTML = `
+      <td class="py-2 pr-4 font-semibold">${sym}</td>
+
+      <td class="py-2 pr-4">${cellTextTop(rptOS?.top)}</td>
+      <td class="py-2 pr-4">${cellTextRecent(rptOS?.bestRecent)}</td>
+      <td class="py-2 pr-4 text-gray-300">${fmtDate(rptOS?.latestDate)}</td>
+
+      <td class="py-2 pr-4 col-split">${cellTextTop(rptIS?.top)}</td>
+      <td class="py-2 pr-4">${cellTextRecent(rptIS?.bestRecent)}</td>
+      <td class="py-2 pr-4 text-gray-300">${fmtDate(rptIS?.latestDate)}</td>
+    `;
+    return tr;
+  }
+
+  async function run() {
+    try {
+      meta.textContent = "Loading idt_daily_data.json…";
+      const res = await fetch("./idt_daily_data.json", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const rows = await res.json();
+      if (!Array.isArray(rows)) throw new Error("idt_daily_data.json must be an array.");
+
+      const bySymbol = groupBySymbol(rows);
+      tbody.innerHTML = "";
+
+      let count = 0;
+      for (const sym of Object.keys(bySymbol).sort()) {
+        const r = bySymbol[sym];
+        const rptOS = computeTagReport(r, "OS");
+        const rptIS = computeTagReport(r, "IS");
+        if (!rptOS && !rptIS) continue;
+
+        tbody.appendChild(renderRow(sym, rptOS, rptIS));
+        count++;
+      }
+
+      meta.textContent =
+        `Computed ${count} symbols (OS / IS shown separately). ` +
+        `Excluded dates: ${Array.from(EXCLUDE_ASOF).join(", ")}. ` +
+        `Top horizon is selected using the last 3 trading days. ` +
+        `Act reflects sample activity (trade volume), Conf reflects confidence in edge (activity-adjusted).`;
+    } catch (e) {
+      console.error(e);
+      meta.textContent = `Failed: ${e.message}`;
+    }
+  }
+
+  window.addEventListener("DOMContentLoaded", run);
+})();
 </script>
 </body>
 </html>
