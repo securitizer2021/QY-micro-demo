@@ -440,7 +440,11 @@ function refreshHZMetric(){
   // metrics: ordered + only if at least one finite numeric exists
   METRICS = METRIC_ORDER.filter(k => rows.some(r => Number.isFinite(Number(r[k]))));
   $("metric").innerHTML = METRICS.map(m=>`<option>${m}</option>`).join("");
-  $("metric").value = METRICS[0] || "";
+  if (METRICS.includes("win_rate")) {
+    $("metric").value = "win_rate";
+  } else {
+    $("metric").value = METRICS[0] || "";
+  }
 
   render();
 }
@@ -637,7 +641,16 @@ function render(){
   const xMin = m.l + xPad;
   const xMax = (W - m.r) - xPad;
 
+  // --- adaptive x-axis labeling ---
+  const maxLabels = Math.floor(pw / 90); // ~90px per label
+  const step = Math.max(1, Math.ceil(dates.length / maxLabels));
+
   const xLabels = dates.map((d, i) => {
+    // always show first & last, otherwise skip by step
+    if (i !== 0 && i !== dates.length - 1 && i % step !== 0) {
+      return "";
+    }
+
     let x = X(d);
     if (x < xMin) x = xMin;
     if (x > xMax) x = xMax;
