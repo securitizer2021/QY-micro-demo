@@ -637,27 +637,19 @@ function render(){
   }).join("");
 
   const xLabelY = (H - m.b) + 28;
-  const xPad = 6;
-  const xMin = m.l + xPad;
-  const xMax = (W - m.r) - xPad;
 
-  // --- adaptive x-axis labeling ---
-  const maxLabels = Math.floor(pw / 90); // ~90px per label
-  const step = Math.max(1, Math.ceil(dates.length / maxLabels));
+  // --- show only key timeline labels (first/last + sparse middle) ---
+  const maxLabels = 6; // <= change this: 4, 6, 8...
+  const step = Math.max(1, Math.ceil((dates.length - 2) / (maxLabels - 2)));
 
   const xLabels = dates.map((d, i) => {
-    // always show first & last, otherwise skip by step
-    if (i !== 0 && i !== dates.length - 1 && i % step !== 0) {
-      return "";
-    }
+    const isEdge = (i === 0 || i === dates.length - 1);
+    const isMilestone = ((i - 1) % step === 0); // milestones in the middle
 
-    let x = X(d);
-    if (x < xMin) x = xMin;
-    if (x > xMax) x = xMax;
+    if (!isEdge && !isMilestone) return "";
 
-    let anchor = "middle";
-    if (i === 0) anchor = "start";
-    if (i === dates.length - 1) anchor = "end";
+    const x = X(d); // IMPORTANT: no clamping (prevents stacked labels)
+    const anchor = (i === 0) ? "start" : (i === dates.length - 1) ? "end" : "middle";
 
     return `<text x="${x}" y="${xLabelY}"
              text-anchor="${anchor}"
