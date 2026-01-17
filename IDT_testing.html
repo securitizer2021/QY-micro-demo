@@ -101,6 +101,7 @@ svg{
   background:#0f172a;
   border-radius:12px;
   border:1px solid rgba(148,163,184,.15);
+  overflow:visible;
 }
 .kv{display:grid;grid-template-columns:190px 1fr;gap:8px;font-size:14px}
 .kv div:nth-child(odd){color:var(--muted)}
@@ -435,12 +436,38 @@ function refreshAllForSymTag(resetQuickButtons){
   refreshHZMetric();
 }
 
+/* ---------- horizon color mapping (based on ALL horizons sorted) ---------- */
+function getAllHzSorted(sym, tag){
+  const rowsForHzIndex = DATA.filter(d=>d.symbol===sym && d.tag===tag);
+  return uniq(rowsForHzIndex.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
+}
+function colorForHz(sym, tag, hz){
+  const allHzSorted = getAllHzSorted(sym, tag);
+  const hzIdx = allHzSorted.indexOf(hz);
+  return COLORS[(hzIdx >= 0 ? hzIdx : 0) % COLORS.length];
+}
+function dashForHz(sym, tag, hz){
+  const allHzSorted = getAllHzSorted(sym, tag);
+  const hzIdx = allHzSorted.indexOf(hz);
+  return DASHES[(hzIdx >= 0 ? hzIdx : 0) % DASHES.length];
+}
+function updateHorizonSwatches(){
+  const sym = $("sym").value;
+  const tag = $("tag").value;
+
+  document.querySelectorAll('input[name="hzcb"]').forEach(cb=>{
+    const hz = Number(cb.value);
+    const sw = cb.closest("label")?.querySelector(".swatch");
+    if(!sw) return;
+    sw.style.background = cb.checked ? colorForHz(sym, tag, hz) : "rgba(148,163,184,.25)";
+  });
+}
+
 /* ---------- horizons + metrics ---------- */
 function refreshHZMetric(){
   const sym = $("sym").value;
   const tag = $("tag").value;
   const rows = DATA.filter(d=>d.symbol===sym && d.tag===tag);
-  const allHzSorted = uniq(rows.map(d => d.horizon_ms)).sort((a,b)=>a-b);
 
   // horizons
   const hzs = uniq(rows.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
@@ -458,15 +485,14 @@ function refreshHZMetric(){
     cb.name = "hzcb";
     cb.value = String(h);
     cb.checked = defaultPick.has(h);
-    cb.addEventListener("change", () => render());
+    cb.addEventListener("change", () => {
+      updateHorizonSwatches();
+      render();
+    });
 
     const sw = document.createElement("span");
     sw.className = "swatch";
-
-    // ✅ color by horizon (same as chart)
-    const hzIdx = allHzSorted.indexOf(h);
-    const color = COLORS[(hzIdx >= 0 ? hzIdx : 0) % COLORS.length];
-    sw.style.background = color;
+    sw.style.background = cb.checked ? colorForHz(sym, tag, h) : "rgba(148,163,184,.25)";
 
     const txt = document.createElement("span");
     txt.textContent = `${h} (${horizonLabel(h)})`;
@@ -520,6 +546,7 @@ function refreshHZMetric(){
     render();
   };
 
+  updateHorizonSwatches();
   render();
 }
 
@@ -653,12 +680,9 @@ function renderLegend(metricsLeft, metricsRight, horizons){
 
   const sym = $("sym").value;
   const tag = $("tag").value;
-  const rowsForHzIndex = DATA.filter(d=>d.symbol===sym && d.tag===tag);
-  const allHzSorted = uniq(rowsForHzIndex.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
 
   horizons.forEach(hz=>{
-    const hzIdx = allHzSorted.indexOf(hz);
-    const color = COLORS[(hzIdx >= 0 ? hzIdx : 0) % COLORS.length];
+    const color = colorForHz(sym, tag, hz);
 
     const item = document.createElement("div");
     item.className = "legendItem";
@@ -677,15 +701,12 @@ function renderLegend(metricsLeft, metricsRight, horizons){
 
   const note = document.createElement("div");
   note.className = "legendItem";
-  note.innerHTML = `<span class="muted">Color & dash = horizon • Axis side = metric scale</span>`;
+  note.innerHTML = `<span class="muted">Color & dash = horizon • Axis side = metric scale • Right-axis metrics = bars only</span>`;
   legend.appendChild(note);
 }
 
-/* ---------- bars baseline ---------- */
-function baselineForRange(minV, maxV){
-  // ✅ Always anchor bars at 0 so + goes up and - goes down
-  return 0;
-}
+/* ---------- bars baseline: ALWAYS 0 line ---------- */
+function barBaselineValue(){ return 0; }
 
 /* ---------- render ---------- */
 function render(){
@@ -728,6 +749,7 @@ function render(){
   const metricsR = split.right;
 
   renderLegend(metricsL, metricsR, horizons);
+  updateHorizonSwatches();
 
   // build series per (metric,horizon)
   const seriesMap = new Map(); // key = `${metric}__${hz}` -> pts
@@ -785,14 +807,19 @@ function render(){
     yMinL = t.min; yMaxL = t.max; yTicksL = t.ticks;
   }
 
+  // ✅ Right axis ticks must be computed from right metrics ONLY; also ensure 0 is included for bar baseline
   if(hasR){
     const min = Math.min(...yValsR), max = Math.max(...yValsR);
-    const t = niceTicks(min, max, 6);
+    const min2 = Math.min(min, barBaselineValue());
+    const max2 = Math.max(max, barBaselineValue());
+    const t = niceTicks(min2, max2, 6);
     yMinR = t.min; yMaxR = t.max; yTicksR = t.ticks;
   }
 
   const W=1200, H=470;
-  const m={l:90,r:(hasR?70:20),t:22,b:110};
+
+  // ✅ keep BOTH Y-axes labels INSIDE chart area by padding + anchoring inside
+  const m={l:88, r:(hasR?88:20), t:22, b:110}; // symmetric margins when right axis exists
   const pw=W-m.l-m.r, ph=H-m.t-m.b;
 
   const X = (date) => {
@@ -803,19 +830,19 @@ function render(){
   const YL = (v) => m.t + ph * (1 - ((v - yMinL)/(yMaxL - yMinL || 1)));
   const YR = (v) => m.t + ph * (1 - ((v - yMinR)/(yMaxR - yMinR || 1)));
 
-  // left gridlines + left ticks
+  // left gridlines + left ticks (labels INSIDE)
   const gridLinesL = yTicksL.map(v => {
     const y = YL(v);
     return `
       <line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="rgba(148,163,184,.10)" />
-      <text x="${m.l-10}" y="${y+4}" text-anchor="end" font-size="11" fill="rgba(148,163,184,.85)">${fmt(v)}</text>
+      <text x="${m.l+4}" y="${y+4}" text-anchor="start" font-size="11" fill="rgba(148,163,184,.85)">${fmt(v)}</text>
     `;
   }).join("");
 
-  // right ticks (no gridlines)
+  // right ticks (labels INSIDE)
   const ticksR = hasR ? yTicksR.map(v => {
     const y = YR(v);
-    return `<text x="${W-m.r+10}" y="${y+4}" text-anchor="start" font-size="11" fill="rgba(148,163,184,.70)">${fmt(v)}</text>`;
+    return `<text x="${W-m.r-4}" y="${y+4}" text-anchor="end" font-size="11" fill="rgba(148,163,184,.70)">${fmt(v)}</text>`;
   }).join("") : "";
 
   // x labels
@@ -855,10 +882,6 @@ function render(){
     `;
   }).join("");
 
-  // horizon ordering for colors/dashes
-  const rowsForHzIndex = DATA.filter(d=>d.symbol===sym && d.tag===tag);
-  const allHzSorted = uniq(rowsForHzIndex.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
-
   // ===== Bars (RIGHT-axis metrics): colored by horizon =====
   let bars = "";
   let barHitAreas = "";
@@ -873,28 +896,29 @@ function render(){
   const gap = Math.max(1, Math.floor(groupW * 0.06));
   const barW = Math.max(2, Math.floor((groupW - gap * (totalBars - 1)) / totalBars));
 
-  const baseV = baselineForRange(yMinR, yMaxR);
+  // ✅ baseline ALWAYS at 0
+  const baseV = barBaselineValue();
   const yBase = YR(baseV);
 
-  function valueFor(metric, hz, dt){
-    const pts = seriesMap.get(`${metric}__${hz}`) || [];
-    // small sizes -> simple map each call is OK
-    const mm = new Map(pts.map(p => [p.asof, p.y]));
-    const v = mm.get(dt);
-    return Number.isFinite(v) ? v : NaN;
+  // cache value maps for right metrics to avoid rebuilding maps in loops
+  const valueMap = new Map(); // key `${metric}__${hz}` -> Map(asof->y)
+  for(const metric of rightMetrics){
+    for(const hz of horizons){
+      const pts = seriesMap.get(`${metric}__${hz}`) || [];
+      valueMap.set(`${metric}__${hz}`, new Map(pts.map(p=>[p.asof,p.y])));
+    }
   }
 
   rightMetrics.forEach((metric, mi) => {
     horizons.forEach((hz, hi) => {
-      const hzIdx = allHzSorted.indexOf(hz);
-      const color = COLORS[(hzIdx >= 0 ? hzIdx : hi) % COLORS.length];
-
+      const color = colorForHz(sym, tag, hz);
       const op = Math.min(0.42, 0.22 + mi * 0.10);
       const slot = mi * nH + hi;
+      const mm = valueMap.get(`${metric}__${hz}`) || new Map();
 
       for (let di = 0; di < dates.length; di++){
         const dt = dates[di];
-        const v = valueFor(metric, hz, dt);
+        const v = mm.get(dt);
         if(!Number.isFinite(v)) continue;
 
         const xCenter = X(dt);
@@ -932,20 +956,21 @@ function render(){
     });
   });
 
-  // ===== Lines (ALL metrics): colored by horizon, dash by horizon =====
+  // ✅ draw explicit zero baseline for right axis bars (inside chart area)
+  const zeroLine = hasR ? `<line x1="${m.l}" x2="${W-m.r}" y1="${yBase}" y2="${yBase}" stroke="rgba(148,163,184,.22)" />` : "";
+
+  // ===== Lines (LEFT-axis metrics ONLY): colored by horizon, dash by horizon =====
+  // ✅ FIX: do NOT draw line for right-axis metrics (bars-only)
   let paths = "";
   let points = "";
 
-  // ✅ only draw lines for LEFT metrics
-  metricsL.forEach((metric) => {
-    const useRight = false; // left-only by definition here
+  const lineMetrics = metrics.filter(met => !metricsR.includes(met)); // left-axis only
 
+  lineMetrics.forEach((metric) => {
     horizons.forEach(hz => {
       const pts = seriesMap.get(`${metric}__${hz}`) || [];
-
-      const hzIdx = allHzSorted.indexOf(hz);
-      const color = COLORS[(hzIdx >= 0 ? hzIdx : 0) % COLORS.length]; // horizon color
-      const dash  = DASHES[(hzIdx >= 0 ? hzIdx : 0) % DASHES.length]; // horizon dash
+      const color = colorForHz(sym, tag, hz);
+      const dash = dashForHz(sym, tag, hz);
 
       const valByDate = new Map(pts.map(p => [p.asof, p.y]));
       let dPath = "";
@@ -954,7 +979,7 @@ function render(){
       for (const dt of dates) {
         const yv = valByDate.get(dt);
         if (!Number.isFinite(yv)) { started = false; continue; }
-        const x = X(dt), y = YL(yv);   // ✅ left axis only
+        const x = X(dt), y = YL(yv);
         dPath += (started ? ` L ${x} ${y}` : ` M ${x} ${y}`);
         started = true;
       }
@@ -1002,7 +1027,7 @@ function render(){
     ${gridLinesL}
     ${ticksR}
 
-    <!-- X axis + Y axes -->
+    <!-- chart frame / axes (inside area) -->
     <line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}" stroke="rgba(148,163,184,.25)" />
     <line x1="${m.l}" x2="${m.l}" y1="${m.t}" y2="${H-m.b}" stroke="rgba(148,163,184,.25)" />
     ${hasR ? `<line x1="${W-m.r}" x2="${W-m.r}" y1="${m.t}" y2="${H-m.b}" stroke="rgba(148,163,184,.18)" />` : ""}
@@ -1016,6 +1041,7 @@ function render(){
 
     ${xLabels}
 
+    ${zeroLine}
     ${bars}
     ${barHitAreas}
 
