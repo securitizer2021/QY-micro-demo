@@ -112,7 +112,7 @@ svg{
   flex-wrap:wrap;
 }
 
-/* horizons: 4 columns */
+/* horizons: ✅ 3 columns */
 .hzList{
   background:#0f172a;
   border:1px solid rgba(148,163,184,.25);
@@ -125,7 +125,7 @@ svg{
   min-width:740px;
 
   display:grid;
-  grid-template-columns:repeat(4, minmax(210px, 1fr));
+  grid-template-columns:repeat(3, minmax(210px, 1fr));
   column-gap:18px;
   row-gap:6px;
 }
@@ -143,6 +143,30 @@ svg{
   padding:2px 0;
   font-size:13px;
   color:var(--text);
+  white-space:nowrap;
+}
+
+/* metric checkboxes */
+.metricList{
+  background:#0f172a;
+  border:1px solid rgba(148,163,184,.25);
+  border-radius:12px;
+  padding:10px;
+
+  min-width:320px;
+  max-height:160px;
+  overflow:auto;
+
+  display:grid;
+  grid-template-columns:repeat(2, minmax(140px, 1fr));
+  column-gap:14px;
+  row-gap:6px;
+}
+.metricItem{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
   white-space:nowrap;
 }
 
@@ -243,20 +267,28 @@ svg{
         <button id="btnLast10" class="btnPill">Last 10</button>
       </div>
 
-      <div class="hzBox" style="width:100%;">
-        <div>
+      <!-- ✅ Horizons + Metrics on SAME row -->
+      <div class="hzBox" style="width:100%; align-items:stretch;">
+
+        <!-- Horizons -->
+        <div style="flex:1; min-width:740px;">
           <div class="muted" style="font-size:12px;margin:0 0 6px 2px;">Horizons (multi)</div>
-          <div id="hzList" class="hzList"></div>
+          <div id="hzList" class="hzList" style="min-width:0; width:100%;"></div>
         </div>
 
-        <div style="min-width:320px;">
-          <label class="muted" style="font-size:12px;display:block;margin:0 0 6px 2px;">Metric</label>
-          <div class="row" style="gap:8px;">
-            <select id="metric" style="min-width:180px;"></select>
-            <button id="prev">◀</button>
-            <button id="next">▶</button>
+        <!-- Metrics -->
+        <div style="flex:0 0 420px; min-width:420px;">
+          <div class="muted" style="font-size:12px;margin:0 0 6px 2px;">Metrics (multi)</div>
+          <div class="row" style="gap:8px;align-items:flex-start;">
+            <div id="metricList" class="metricList" style="min-width:0; width:100%;"></div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button id="metricsAll">All</button>
+              <button id="metricsNone">None</button>
+            </div>
           </div>
+          <div class="hint">Metrics are auto-assigned to left/right Y-axis by range. Right-axis metrics render as bars (colored by horizon).</div>
         </div>
+
       </div>
     </div>
 
@@ -274,7 +306,7 @@ svg{
         <div id="tooltip" class="tooltip"></div>
       </div>
       <div class="hint">
-        X = date (asof), Y = selected metric. Missing values create gaps (date still shown).
+        X = date (asof). Left/Right Y-axes are auto-scaled by metric range. Color = horizon.
       </div>
     </div>
 
@@ -302,6 +334,9 @@ const COLORS = [
   "#22c55e", "#60a5fa", "#f472b6", "#c084fc", "#f97316",
   "#2dd4bf", "#e879f9"
 ];
+
+// dash patterns by horizon (repeats if many horizons)
+const DASHES = ["", "8 4", "4 3", "12 4 2 4", "2 3", "10 3"];
 
 // Metric order (extend to include newer JSON fields too)
 const METRIC_ORDER = [
@@ -342,15 +377,16 @@ function horizonLabel(ms){
 function selection(){
   const sym = $("sym").value;
   const tag = $("tag").value;
-  const metric = $("metric").value;
 
   const hz = [...document.querySelectorAll('input[name="hzcb"]:checked')].map(el => Number(el.value));
   hz.sort((a,b)=>a-b);
 
+  const metrics = [...document.querySelectorAll('input[name="metriccb"]:checked')].map(el => el.value);
+
   const ds = $("dateStart").value;
   const de = $("dateEnd").value;
 
-  return { sym, tag, metric, horizons: hz, dateStart: ds, dateEnd: de };
+  return { sym, tag, metrics, horizons: hz, dateStart: ds, dateEnd: de };
 }
 
 /* ---------- dates helpers (per sym/tag) ---------- */
@@ -376,7 +412,6 @@ function buildSelectors(){
   const syms = uniq(DATA.map(d=>d.symbol)).sort();
   $("sym").innerHTML = syms.map(s=>`<option>${s}</option>`).join("");
   $("sym").value = syms.includes("ES") ? "ES" : syms[0];
-
   refreshAllForSymTag(true);
 }
 
@@ -405,6 +440,7 @@ function refreshHZMetric(){
   const sym = $("sym").value;
   const tag = $("tag").value;
   const rows = DATA.filter(d=>d.symbol===sym && d.tag===tag);
+  const allHzSorted = uniq(rows.map(d => d.horizon_ms)).sort((a,b)=>a-b);
 
   // horizons
   const hzs = uniq(rows.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
@@ -413,7 +449,7 @@ function refreshHZMetric(){
 
   const defaultPick = new Set(hzs.slice(Math.max(0, hzs.length-5))); // last 5 by default
 
-  hzs.forEach((h, idx) => {
+  hzs.forEach((h) => {
     const line = document.createElement("label");
     line.className = "hzItem";
 
@@ -426,7 +462,11 @@ function refreshHZMetric(){
 
     const sw = document.createElement("span");
     sw.className = "swatch";
-    sw.style.background = COLORS[idx % COLORS.length];
+
+    // ✅ color by horizon (same as chart)
+    const hzIdx = allHzSorted.indexOf(h);
+    const color = COLORS[(hzIdx >= 0 ? hzIdx : 0) % COLORS.length];
+    sw.style.background = color;
 
     const txt = document.createElement("span");
     txt.textContent = `${h} (${horizonLabel(h)})`;
@@ -437,14 +477,48 @@ function refreshHZMetric(){
     hzList.appendChild(line);
   });
 
-  // metrics: ordered + only if at least one finite numeric exists
+  // metrics
   METRICS = METRIC_ORDER.filter(k => rows.some(r => Number.isFinite(Number(r[k]))));
-  $("metric").innerHTML = METRICS.map(m=>`<option>${m}</option>`).join("");
-  if (METRICS.includes("win_rate")) {
-    $("metric").value = "win_rate";
-  } else {
-    $("metric").value = METRICS[0] || "";
-  }
+
+  const metricList = $("metricList");
+  metricList.innerHTML = "";
+
+  const defaultMetricPick = new Set();
+  if (METRICS.includes("win_rate")) defaultMetricPick.add("win_rate");
+  else if (METRICS[0]) defaultMetricPick.add(METRICS[0]);
+
+  METRICS.forEach((m) => {
+    const line = document.createElement("label");
+    line.className = "metricItem";
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.name = "metriccb";
+    cb.value = m;
+    cb.checked = defaultMetricPick.has(m);
+    cb.addEventListener("change", () => render());
+
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = "rgba(148,163,184,.25)"; // metric swatch not used for meaning
+
+    const txt = document.createElement("span");
+    txt.textContent = m;
+
+    line.appendChild(cb);
+    line.appendChild(sw);
+    line.appendChild(txt);
+    metricList.appendChild(line);
+  });
+
+  $("metricsAll").onclick = () => {
+    metricList.querySelectorAll('input[name="metriccb"]').forEach(c => c.checked = true);
+    render();
+  };
+  $("metricsNone").onclick = () => {
+    metricList.querySelectorAll('input[name="metriccb"]').forEach(c => c.checked = false);
+    render();
+  };
 
   render();
 }
@@ -470,33 +544,6 @@ function applyRangeLastN(n){
   $("dateEnd").value = end;
   clampEndGteStart();
   render();
-}
-
-/* ---------- legend ---------- */
-function renderLegend(horizons){
-  const sym = $("sym").value;
-  const tag = $("tag").value;
-
-  const rows = DATA.filter(d=>d.symbol===sym && d.tag===tag);
-  const allHz = uniq(rows.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
-
-  const legend = $("legend");
-  legend.innerHTML = "";
-  horizons.forEach(h => {
-    const idx = allHz.indexOf(h);
-    const c = COLORS[(idx >= 0 ? idx : 0) % COLORS.length];
-
-    const item = document.createElement("div");
-    item.className = "legendItem";
-    const sw = document.createElement("span");
-    sw.className = "swatch";
-    sw.style.background = c;
-    const tx = document.createElement("span");
-    tx.textContent = `${h} (${horizonLabel(h)})`;
-    item.appendChild(sw);
-    item.appendChild(tx);
-    legend.appendChild(item);
-  });
 }
 
 /* ---------- ticks ---------- */
@@ -532,7 +579,7 @@ function refreshSnapDateList(datesInRange){
   }
 }
 
-/* ---------- horizon-invariant detector (DO NOT collapse; just note) ---------- */
+/* ---------- invariant detector (per metric) ---------- */
 function metricLooksInvariant(sym, tag, metric, horizons, dates){
   if(!horizons.length || !dates.length) return false;
   for(const dt of dates){
@@ -542,22 +589,112 @@ function metricLooksInvariant(sym, tag, metric, horizons, dates){
       const v = row ? Number(row[metric]) : NaN;
       if(!Number.isFinite(v)) continue;
       if(!set0){ v0 = v; set0 = true; }
-      else{
-        if(Math.abs(v - v0) > 1e-12) return false;
-      }
+      else if(Math.abs(v - v0) > 1e-12) return false;
     }
   }
   return true;
 }
 
+/* ---------- axis assignment: split metrics into Left/Right by range ---------- */
+function splitMetricsByRange(sym, tag, metrics, horizons, dates){
+  const spanByMetric = new Map();
+  for(const metric of metrics){
+    let minV = Infinity, maxV = -Infinity;
+    for(const hz of horizons){
+      for(const dt of dates){
+        const row = DATA.find(d => d.symbol===sym && d.tag===tag && d.horizon_ms===hz && d.asof===dt);
+        const v = row ? Number(row[metric]) : NaN;
+        if(!Number.isFinite(v)) continue;
+        if(v < minV) minV = v;
+        if(v > maxV) maxV = v;
+      }
+    }
+    const span = (minV===Infinity) ? 0 : (maxV - minV);
+    spanByMetric.set(metric, span);
+  }
+
+  if(metrics.length <= 1){
+    return { left: metrics.slice(), right: [], spanByMetric };
+  }
+
+  const spans = metrics.map(m => Math.max(0, spanByMetric.get(m) || 0)).filter(s => Number.isFinite(s));
+  const nonZero = spans.filter(s => s > 0);
+  if(nonZero.length <= 1){
+    return { left: metrics.slice(), right: [], spanByMetric };
+  }
+
+  const minSpan = Math.min(...nonZero);
+  const maxSpan = Math.max(...nonZero);
+
+  const ratio = maxSpan / minSpan;
+  if(ratio < 8){
+    return { left: metrics.slice(), right: [], spanByMetric };
+  }
+
+  const threshold = Math.sqrt(minSpan * maxSpan);
+
+  const left = [];
+  const right = [];
+  for(const m of metrics){
+    const s = spanByMetric.get(m) || 0;
+    (s >= threshold ? left : right).push(m);
+  }
+
+  if(!left.length) { left.push(right.shift()); }
+  if(!right.length) { right.push(left.pop()); }
+
+  return { left, right, spanByMetric };
+}
+
+/* ---------- legend: COLOR = HORIZON (consistent across metrics) ---------- */
+function renderLegend(metricsLeft, metricsRight, horizons){
+  const legend = $("legend");
+  legend.innerHTML = "";
+
+  const sym = $("sym").value;
+  const tag = $("tag").value;
+  const rowsForHzIndex = DATA.filter(d=>d.symbol===sym && d.tag===tag);
+  const allHzSorted = uniq(rowsForHzIndex.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
+
+  horizons.forEach(hz=>{
+    const hzIdx = allHzSorted.indexOf(hz);
+    const color = COLORS[(hzIdx >= 0 ? hzIdx : 0) % COLORS.length];
+
+    const item = document.createElement("div");
+    item.className = "legendItem";
+
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = color;
+
+    const tx = document.createElement("span");
+    tx.textContent = `hz=${hz} (${horizonLabel(hz)})`;
+
+    item.appendChild(sw);
+    item.appendChild(tx);
+    legend.appendChild(item);
+  });
+
+  const note = document.createElement("div");
+  note.className = "legendItem";
+  note.innerHTML = `<span class="muted">Color & dash = horizon • Axis side = metric scale</span>`;
+  legend.appendChild(note);
+}
+
+/* ---------- bars baseline ---------- */
+function baselineForRange(minV, maxV){
+  // ✅ Always anchor bars at 0 so + goes up and - goes down
+  return 0;
+}
+
 /* ---------- render ---------- */
 function render(){
-  const {sym, tag, metric, horizons} = selection();
+  const {sym, tag, metrics, horizons} = selection();
   const svg = $("chart");
   const tip = $("tooltip");
 
-  if(!metric){
-    status("No metrics found.");
+  if(!metrics || !metrics.length){
+    status("Select at least one metric checkbox.");
     $("legend").innerHTML = "";
     svg.innerHTML = "";
     $("kpi").innerHTML = "";
@@ -573,8 +710,6 @@ function render(){
   }
 
   clampEndGteStart();
-  renderLegend(horizons);
-
   const dates = filteredDates(sym, tag);
   if(!dates.length){
     status("No dates in selected range.");
@@ -587,61 +722,105 @@ function render(){
   refreshSnapDateList(dates);
   const dateIndex = new Map(dates.map((d,i)=>[d,i]));
 
-  // build series per horizon (keep even if identical!)
-  const seriesMap = new Map();
-  horizons.forEach(hz => {
-    const rows = DATA
-      .filter(d => d.symbol===sym && d.tag===tag && d.horizon_ms===hz && d.asof >= dates[0] && d.asof <= dates[dates.length-1])
-      .sort((a,b)=>a.asof.localeCompare(b.asof));
+  // split metrics into left / right by range (span)
+  const split = splitMetricsByRange(sym, tag, metrics, horizons, dates);
+  const metricsL = split.left;
+  const metricsR = split.right;
 
-    const pts = rows.map(r => ({
-      asof: r.asof,
-      y: Number(r[metric]),
-      raw: r
-    })).filter(p => Number.isFinite(p.y));
+  renderLegend(metricsL, metricsR, horizons);
 
-    seriesMap.set(hz, pts);
+  // build series per (metric,horizon)
+  const seriesMap = new Map(); // key = `${metric}__${hz}` -> pts
+  metrics.forEach(metric => {
+    horizons.forEach(hz => {
+      const rows = DATA
+        .filter(d => d.symbol===sym && d.tag===tag && d.horizon_ms===hz && d.asof >= dates[0] && d.asof <= dates[dates.length-1])
+        .sort((a,b)=>a.asof.localeCompare(b.asof));
+
+      const pts = rows.map(r => ({
+        asof: r.asof,
+        y: Number(r[metric]),
+        raw: r
+      })).filter(p => Number.isFinite(p.y));
+
+      seriesMap.set(`${metric}__${hz}`, pts);
+    });
   });
 
-  const yVals = [];
-  seriesMap.forEach(pts => pts.forEach(p => yVals.push(p.y)));
+  // compute y ranges separately for left and right axes
+  function collectY(metricsSide){
+    const vals = [];
+    for(const metric of metricsSide){
+      for(const hz of horizons){
+        const pts = seriesMap.get(`${metric}__${hz}`) || [];
+        for(const p of pts) vals.push(p.y);
+      }
+    }
+    return vals;
+  }
 
-  if(!yVals.length){
-    status(`No finite values to plot for ${sym} ${tag} metric=${metric} in range.`);
+  const yValsL = collectY(metricsL);
+  const yValsR = collectY(metricsR);
+
+  if(!yValsL.length && !yValsR.length){
+    status(`No finite values to plot for ${sym} ${tag} in range.`);
     svg.innerHTML = "";
     $("kpi").innerHTML = "";
     return;
   }
 
-  let yMin = Math.min(...yVals), yMax = Math.max(...yVals);
-  const ticksObj = niceTicks(yMin, yMax, 6);
-  yMin = ticksObj.min; yMax = ticksObj.max;
-  const yTicks = ticksObj.ticks;
+  const hasL = yValsL.length > 0;
+  const hasR = yValsR.length > 0;
+
+  let yMinL=0, yMaxL=1, yTicksL=[0,1];
+  let yMinR=0, yMaxR=1, yTicksR=[0,1];
+
+  if(hasL){
+    const min = Math.min(...yValsL), max = Math.max(...yValsL);
+    const t = niceTicks(min, max, 6);
+    yMinL = t.min; yMaxL = t.max; yTicksL = t.ticks;
+  } else {
+    const min = Math.min(...yValsR), max = Math.max(...yValsR);
+    const t = niceTicks(min, max, 6);
+    yMinL = t.min; yMaxL = t.max; yTicksL = t.ticks;
+  }
+
+  if(hasR){
+    const min = Math.min(...yValsR), max = Math.max(...yValsR);
+    const t = niceTicks(min, max, 6);
+    yMinR = t.min; yMaxR = t.max; yTicksR = t.ticks;
+  }
 
   const W=1200, H=470;
-  const m={l:90,r:20,t:22,b:110};
+  const m={l:90,r:(hasR?70:20),t:22,b:110};
   const pw=W-m.l-m.r, ph=H-m.t-m.b;
 
   const X = (date) => {
     const i = dateIndex.get(date);
     return m.l + pw * ((i ?? 0) / (dates.length-1 || 1));
   };
-  const Y = (v) => m.t + ph * (1 - ((v - yMin)/(yMax - yMin || 1)));
 
-  const gridLines = yTicks.map(v => {
-    const y = Y(v);
+  const YL = (v) => m.t + ph * (1 - ((v - yMinL)/(yMaxL - yMinL || 1)));
+  const YR = (v) => m.t + ph * (1 - ((v - yMinR)/(yMaxR - yMinR || 1)));
+
+  // left gridlines + left ticks
+  const gridLinesL = yTicksL.map(v => {
+    const y = YL(v);
     return `
       <line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="rgba(148,163,184,.10)" />
       <text x="${m.l-10}" y="${y+4}" text-anchor="end" font-size="11" fill="rgba(148,163,184,.85)">${fmt(v)}</text>
     `;
   }).join("");
 
-  const xLabelY = (H - m.b) + 22;   // a bit higher, since we may add a 2nd line
-  const xLabelY2 = xLabelY + 14;    // second line (year)
+  // right ticks (no gridlines)
+  const ticksR = hasR ? yTicksR.map(v => {
+    const y = YR(v);
+    return `<text x="${W-m.r+10}" y="${y+4}" text-anchor="start" font-size="11" fill="rgba(148,163,184,.70)">${fmt(v)}</text>`;
+  }).join("") : "";
 
-  // ---- format labels ----
+  // x labels
+  const xLabelY = (H - m.b) + 22;
   function md(d){
-    // "YYYYMMDD" -> "MM/DD"
     if (typeof d === "string" && d.length === 8){
       return `${d.slice(4,6)}/${d.slice(6,8)}`;
     }
@@ -651,16 +830,14 @@ function render(){
     return (typeof d === "string" && d.length === 8) ? d.slice(0,4) : "";
   }
 
-  // ---- dynamic label density (based on SHORT labels only) ----
   const chartPxW = svg.getBoundingClientRect().width || pw;
-  const approxCharPx = 7.2;                        // rough px per char @ 12px
+  const approxCharPx = 7.2;
   const sample = md(dates[Math.floor(dates.length/2)] || "");
   const approxLabelPx = Math.max(24, String(sample).length * approxCharPx);
   const minSpacingPx = approxLabelPx + 16;
   const maxLabels = Math.max(2, Math.min(8, Math.floor(chartPxW / minSpacingPx)));
   const step = Math.max(1, Math.ceil((dates.length - 2) / Math.max(1, (maxLabels - 2))));
 
-  // ---- build x labels ----
   const xLabels = dates.map((d, i) => {
     const isEdge = (i === 0 || i === dates.length - 1);
     const isMilestone = ((i - 1) % step === 0);
@@ -669,80 +846,184 @@ function render(){
     const x = X(d);
     const anchor = (i === 0) ? "start" : (i === dates.length - 1) ? "end" : "middle";
 
-    // show year only on first labeled tick, and when the year changes vs previous date
-    const showYear = true; // show year for EVERY displayed tick label
-
-    // Two-line label using tspans (same width as MM/DD)
-    if (showYear) {
-      return `
-        <text x="${x}" y="${xLabelY}" text-anchor="${anchor}"
-              font-size="12" fill="rgba(148,163,184,.95)">
-          <tspan x="${x}" dy="0">${md(d)}</tspan>
-          <tspan x="${x}" dy="14" font-size="11" fill="rgba(148,163,184,.75)">${yyyy(d)}</tspan>
-        </text>
-      `;
-    }
-
-    // Normal single-line label
-    return `<text x="${x}" y="${xLabelY}"
-             text-anchor="${anchor}"
-             font-size="12"
-             fill="rgba(148,163,184,.95)">${md(d)}</text>`;
+    return `
+      <text x="${x}" y="${xLabelY}" text-anchor="${anchor}"
+            font-size="12" fill="rgba(148,163,184,.95)">
+        <tspan x="${x}" dy="0">${md(d)}</tspan>
+        <tspan x="${x}" dy="14" font-size="11" fill="rgba(148,163,184,.75)">${yyyy(d)}</tspan>
+      </text>
+    `;
   }).join("");
 
-  const rowsForColorIndex = DATA.filter(d=>d.symbol===sym && d.tag===tag);
-  const allHzSorted = uniq(rowsForColorIndex.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
+  // horizon ordering for colors/dashes
+  const rowsForHzIndex = DATA.filter(d=>d.symbol===sym && d.tag===tag);
+  const allHzSorted = uniq(rowsForHzIndex.map(d=>d.horizon_ms)).sort((a,b)=>a-b);
 
-  let paths = "";
-  let points = "";
+  // ===== Bars (RIGHT-axis metrics): colored by horizon =====
+  let bars = "";
+  let barHitAreas = "";
 
-  horizons.forEach(hz => {
-    const pts = seriesMap.get(hz) || [];
-    const idx = allHzSorted.indexOf(hz);
-    const color = COLORS[(idx >= 0 ? idx : 0) % COLORS.length];
+  const rightMetrics = metricsR.slice();
+  const nH = horizons.length;
+  const nM = rightMetrics.length;
+  const totalBars = Math.max(1, nH * nM);
 
-    const valByDate = new Map(pts.map(p => [p.asof, p.y]));
-    let dPath = "";
-    let started = false;
+  const dateStepPx = (dates.length > 1) ? (pw / (dates.length - 1)) : pw;
+  const groupW = Math.max(12, Math.min(44, dateStepPx * 0.70));
+  const gap = Math.max(1, Math.floor(groupW * 0.06));
+  const barW = Math.max(2, Math.floor((groupW - gap * (totalBars - 1)) / totalBars));
 
-    for (const dt of dates) {
-      const yv = valByDate.get(dt);
-      if (!Number.isFinite(yv)) { started = false; continue; }
-      const x = X(dt), y = Y(yv);
-      dPath += (started ? ` L ${x} ${y}` : ` M ${x} ${y}`);
-      started = true;
-    }
+  const baseV = baselineForRange(yMinR, yMaxR);
+  const yBase = YR(baseV);
 
-    paths += `<path data-hz="${hz}" d="${dPath}" fill="none" stroke="${color}" stroke-width="2.7" />`;
+  function valueFor(metric, hz, dt){
+    const pts = seriesMap.get(`${metric}__${hz}`) || [];
+    // small sizes -> simple map each call is OK
+    const mm = new Map(pts.map(p => [p.asof, p.y]));
+    const v = mm.get(dt);
+    return Number.isFinite(v) ? v : NaN;
+  }
 
-    pts.forEach(p => {
-      const x = X(p.asof), y = Y(p.y);
-      points += `
-        <circle class="pt" data-hz="${hz}" data-date="${p.asof}" data-val="${p.y}"
-                cx="${x}" cy="${y}" r="10"
-                fill="transparent" stroke="transparent"></circle>
-        <circle cx="${x}" cy="${y}" r="2.3" fill="${color}" opacity="0.95"></circle>
-      `;
+  rightMetrics.forEach((metric, mi) => {
+    horizons.forEach((hz, hi) => {
+      const hzIdx = allHzSorted.indexOf(hz);
+      const color = COLORS[(hzIdx >= 0 ? hzIdx : hi) % COLORS.length];
+
+      const op = Math.min(0.42, 0.22 + mi * 0.10);
+      const slot = mi * nH + hi;
+
+      for (let di = 0; di < dates.length; di++){
+        const dt = dates[di];
+        const v = valueFor(metric, hz, dt);
+        if(!Number.isFinite(v)) continue;
+
+        const xCenter = X(dt);
+        const groupLeft = xCenter - Math.floor(groupW / 2);
+        const x = groupLeft + slot * (barW + gap);
+
+        const y = YR(v);
+        const top = Math.min(y, yBase);
+        const h = Math.max(1, Math.abs(yBase - y));
+
+        bars += `
+          <rect x="${x}" y="${top}" width="${barW}" height="${h}"
+                fill="${color}" opacity="${op}"
+                stroke="${color}" stroke-width="1"
+                data-hz="${hz}"
+                data-metric="${metric}"
+                data-axis="R"
+                data-type="bar"
+                data-date="${dt}"
+                data-val="${v}"></rect>
+        `;
+
+        barHitAreas += `
+          <rect class="pt"
+                x="${x-2}" y="${top}" width="${barW+4}" height="${h}"
+                fill="transparent"
+                data-hz="${hz}"
+                data-metric="${metric}"
+                data-axis="R"
+                data-type="bar"
+                data-date="${dt}"
+                data-val="${v}"></rect>
+        `;
+      }
     });
   });
 
+  // ===== Lines (ALL metrics): colored by horizon, dash by horizon =====
+  let paths = "";
+  let points = "";
+
+  // ✅ only draw lines for LEFT metrics
+  metricsL.forEach((metric) => {
+    const useRight = false; // left-only by definition here
+
+    horizons.forEach(hz => {
+      const pts = seriesMap.get(`${metric}__${hz}`) || [];
+
+      const hzIdx = allHzSorted.indexOf(hz);
+      const color = COLORS[(hzIdx >= 0 ? hzIdx : 0) % COLORS.length]; // horizon color
+      const dash  = DASHES[(hzIdx >= 0 ? hzIdx : 0) % DASHES.length]; // horizon dash
+
+      const valByDate = new Map(pts.map(p => [p.asof, p.y]));
+      let dPath = "";
+      let started = false;
+
+      for (const dt of dates) {
+        const yv = valByDate.get(dt);
+        if (!Number.isFinite(yv)) { started = false; continue; }
+        const x = X(dt), y = YL(yv);   // ✅ left axis only
+        dPath += (started ? ` L ${x} ${y}` : ` M ${x} ${y}`);
+        started = true;
+      }
+
+      paths += `
+        <path class="series"
+              data-hz="${hz}"
+              data-metric="${metric}"
+              data-axis="L"
+              data-type="line"
+              d="${dPath}"
+              fill="none"
+              stroke="${color}"
+              stroke-width="2.4"
+              stroke-dasharray="${dash}" />
+      `;
+
+      pts.forEach(p => {
+        const x = X(p.asof), y = YL(p.y);
+        points += `
+          <circle class="pt"
+                  data-hz="${hz}"
+                  data-metric="${metric}"
+                  data-axis="L"
+                  data-type="line"
+                  data-date="${p.asof}"
+                  data-val="${p.y}"
+                  cx="${x}" cy="${y}" r="10"
+                  fill="transparent" stroke="transparent"></circle>
+          <circle cx="${x}" cy="${y}" r="2.1" fill="${color}" opacity="0.95"></circle>
+        `;
+      });
+    });
+  });
+
+  const invariantMetrics = metrics.filter(metric => metricLooksInvariant(sym, tag, metric, horizons, dates));
+  const invNote = invariantMetrics.length ? ` • note: invariant across horizons: ${invariantMetrics.join(", ")}` : "";
+
+  const axisLabelL = metricsL.length ? `L: ${metricsL.join(", ")}` : "";
+  const axisLabelR = metricsR.length ? `R: ${metricsR.join(", ")}` : "";
+
   svg.innerHTML = `
     <rect x="0" y="0" width="${W}" height="${H}" fill="transparent"></rect>
-    ${gridLines}
 
+    ${gridLinesL}
+    ${ticksR}
+
+    <!-- X axis + Y axes -->
     <line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}" stroke="rgba(148,163,184,.25)" />
     <line x1="${m.l}" x2="${m.l}" y1="${m.t}" y2="${H-m.b}" stroke="rgba(148,163,184,.25)" />
+    ${hasR ? `<line x1="${W-m.r}" x2="${W-m.r}" y1="${m.t}" y2="${H-m.b}" stroke="rgba(148,163,184,.18)" />` : ""}
 
-    <text x="${m.l}" y="${m.t-5}" font-size="12" fill="rgba(148,163,184,.90)">${sym} ${tag} • ${metric}</text>
+    <text x="${m.l}" y="${m.t-5}" font-size="12" fill="rgba(148,163,184,.90)">
+      ${sym} ${tag} • metrics=${metrics.join(", ")}
+    </text>
+
+    ${axisLabelL ? `<text x="${m.l}" y="${m.t+12}" font-size="11" fill="rgba(148,163,184,.70)">${axisLabelL}</text>` : ""}
+    ${axisLabelR ? `<text x="${W-m.r}" y="${m.t+12}" text-anchor="end" font-size="11" fill="rgba(148,163,184,.60)">${axisLabelR}</text>` : ""}
 
     ${xLabels}
+
+    ${bars}
+    ${barHitAreas}
+
     ${paths}
     ${points}
   `;
 
-  const invariant = metricLooksInvariant(sym, tag, metric, horizons, dates);
-  const invNote = invariant ? " • note: metric identical across selected horizons (lines overlap)" : "";
-  status(`${sym} ${tag} • metric=${metric} • horizons=${horizons.length} • dates=${dates.length} • range=${dates[0]}–${dates[dates.length-1]}${invNote}`);
+  status(`${sym} ${tag} • metrics=${metrics.length} (L:${metricsL.length}, R:${metricsR.length}) • horizons=${horizons.length} • dates=${dates.length} • range=${dates[0]}–${dates[dates.length-1]}${invNote}`);
 
   /* ===== KPI snapshot for selected snapDate + first selected horizon ===== */
   const firstHz = horizons[0];
@@ -764,39 +1045,38 @@ function render(){
     $("kpi").innerHTML = `<div class="muted">No snapshot row for ${snapDate} (first horizon ${firstHz}).</div>`;
   }
 
-  function showTip(evt, hz, date, val){
+  function showTip(evt, hz, metric, axis, type, date, val){
     tip.style.display = "block";
     tip.innerHTML = `
       <div><b>${sym} ${tag}</b></div>
       <div class="muted">date: ${date}</div>
       <div class="muted">horizon: ${hz} (${horizonLabel(Number(hz))})</div>
+      <div class="muted">metric: ${metric} • ${type} • axis: ${axis}</div>
       <div>${metric}: <b>${fmt(Number(val))}</b></div>
     `;
     const rect = svg.getBoundingClientRect();
-    const x = evt.clientX - rect.left + 12;
-    const y = evt.clientY - rect.top + 12;
-    tip.style.left = `${x}px`;
-    tip.style.top  = `${y}px`;
+    tip.style.left = `${evt.clientX - rect.left + 12}px`;
+    tip.style.top  = `${evt.clientY - rect.top + 12}px`;
   }
   function hideTip(){ tip.style.display = "none"; }
 
   svg.onmousemove = (evt) => {
     const target = evt.target;
     if(target && target.classList && target.classList.contains("pt")){
-      showTip(evt, target.getAttribute("data-hz"), target.getAttribute("data-date"), target.getAttribute("data-val"));
+      showTip(
+        evt,
+        target.getAttribute("data-hz"),
+        target.getAttribute("data-metric"),
+        target.getAttribute("data-axis"),
+        target.getAttribute("data-type") || "line",
+        target.getAttribute("data-date"),
+        target.getAttribute("data-val")
+      );
     } else {
       hideTip();
     }
   };
   svg.onmouseleave = hideTip;
-}
-
-function cycleMetric(dir){
-  const cur = $("metric").value;
-  const i = METRICS.indexOf(cur);
-  if(i<0) return;
-  $("metric").value = METRICS[(i + dir + METRICS.length) % METRICS.length];
-  render();
 }
 
 /* ---------- load ---------- */
@@ -818,10 +1098,6 @@ async function main(){
 
   $("dateStart").onchange = () => { clampEndGteStart(); setQuickActive(""); render(); };
   $("dateEnd").onchange   = () => { clampEndGteStart(); setQuickActive(""); render(); };
-
-  $("metric").onchange = render;
-  $("prev").onclick = () => cycleMetric(-1);
-  $("next").onclick = () => cycleMetric(1);
 
   $("snapDate").onchange = render;
 
