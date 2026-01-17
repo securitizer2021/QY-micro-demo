@@ -4,99 +4,71 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>IDT Anchor Horizon Recommender — IS/OS + Charts</title>
-
 <style>
   :root{
     --bg:#0e1116; --card:#151922; --text:#e8eaed; --muted:#9aa0a6; --border:#2a2f3a;
     --chart-h: 280px;
-    --os:#22c55e; --is:#60a5fa; --unk:#f59e0b; --bad:#ef4444;
   }
   body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
   .wrap{max-width:1280px;margin:0 auto;padding:24px}
   .sub{color:var(--muted);margin-bottom:20px}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
   .controls{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px}
   select,input[type="range"]{width:100%}
   .slider-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:6px}
   .row{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
-
-  .pill{padding:6px 10px;border-radius:999px;background:#1b2130;border:1px solid var(--border);color:#dfe3ea;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+  .pill{padding:6px 10px;border-radius:999px;background:#1b2130;border:1px solid var(--border);color:#dfe3ea;cursor:pointer}
   .pill.good{background:rgba(15,157,88,.15);border-color:#224f38;color:#b9ffd3}
   .pill.warn{background:rgba(122,162,255,.15);border-color:#283e7a;color:#cfe0ff}
   .pill.alt {background:rgba(244,180,0,.12);border-color:#564600;color:#ffe9ad}
-
-  .pill.tagOS{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:#c9ffe0}
-  .pill.tagIS{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.35);color:#d6e8ff}
-  .pill.tagUNK{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:#ffe7bf}
-  .pill.tagBAD{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#ffd0d0}
-
-  .badgeDot{width:8px;height:8px;border-radius:999px;display:inline-block}
-  .dotOS{background:var(--os)}
-  .dotIS{background:var(--is)}
-  .dotUNK{background:var(--unk)}
-  .dotBAD{background:var(--bad)}
-
   .recs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 
-  .panes{
-    display:grid;
-    grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
-    gap:16px;
-    margin-top:12px;
-    align-items:start;
-  }
-  .pane{display:flex;flex-direction:column;gap:16px;min-width:0}
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+  .pane{display:flex;flex-direction:column;gap:16px}
 
+  /* Chart container */
   .chartbox{position:relative;height:var(--chart-h);width:100%}
   .chartbox canvas{
     width:100% !important;height:100% !important;display:block;
     background:#0f1420;border:1px solid var(--border);border-radius:12px;padding:8px;
   }
 
-  .tableWrap{overflow-x:auto; max-width:100%;}
-  table{
-    width:100%;
-    border-collapse:collapse;
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:12px;
-    overflow:visible;
-    table-layout:fixed;
-  }
-  thead th{
-    background:#1b2130;
-    padding:10px;
-    border-bottom:1px solid var(--border);
-    text-align:left;
-    white-space:normal;
-    line-height:1.15;
-    font-size:12px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  tbody td{
-    padding:10px;
-    border-top:1px solid var(--border);
-    vertical-align:top;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
+  /* tables */
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:visible;table-layout:auto}
+  thead th{position:sticky;top:0;background:#1b2130;padding:10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+  tbody td{padding:10px;border-top:1px solid var(--border);vertical-align:top;white-space:nowrap}
   .num{font-variant-numeric:tabular-nums;text-align:right}
-  table thead th:first-child{ text-align:left; }
-  table thead th:not(:first-child){ text-align:right; }
-  table tbody td.num{ text-align:right; }
-
   .foot{margin-top:10px;color:var(--muted);font-size:12px}
   .section-title{font-weight:700;margin-bottom:6px}
-  .kwrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .kwrap{display:flex;gap:8px;align-items:center}
   .small-select{width:auto;min-width:84px;padding-right:18px}
+
+  /* panel controls */
   .panel-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
   .muted{color:var(--muted)}
 
-  #riskTable, #simTable { font-size:12px; }
-  #simTable th:last-child, #simTable td:last-child{ min-width:120px; width:120px; }
+  /* ======= Tooltip (CSS-only) ======= */
+  .tt{position:relative; cursor:help; display:inline-block}
+  .tt::after{
+    content: attr(data-tip);
+    position:absolute; left:0; bottom:calc(100% + 8px);
+    background:#0f1420; color:#e8eaed; border:1px solid #2a2f3a;
+    padding:8px 10px; border-radius:8px; min-width:220px; max-width:340px;
+    font-size:12px; line-height:1.35; white-space:normal;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    opacity:0; transform:translateY(6px); pointer-events:none; transition:opacity .15s ease, transform .15s ease;
+    z-index:10;
+  }
+  .tt::before{
+    content:""; position:absolute; left:10px; bottom:calc(100% + 4px);
+    border:6px solid transparent; border-top-color:#2a2f3a; opacity:0; transform:translateY(6px); transition:opacity .15s ease, transform .15s ease;
+    z-index:11;
+  }
+  .tt:hover::after, .tt:hover::before{opacity:1; transform:translateY(0)}
 
+  #riskTable, #simTable { font-size:12px; }
+
+  /* ✅ FIX: horizons area scroll box so it never overlaps chart */
   .chk-scroll{
     max-height: 98px;
     overflow:auto;
@@ -106,48 +78,38 @@
     background:#101624;
   }
   .chk-wrap{display:flex;gap:8px;flex-wrap:wrap}
-  .chk-wrap label{
-    display:inline-flex;gap:6px;align-items:center;
-    background:#121a2a;border:1px solid var(--border);
-    padding:4px 8px;border-radius:999px
-  }
+  .chk-wrap label{display:inline-flex;gap:6px;align-items:center;background:#121a2a;border:1px solid var(--border);padding:4px 8px;border-radius:999px}
 
+  /* extra spacing between checkboxes and chart */
   .chart-spacer{height:10px}
 
-  .tagbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
-  .taginfo{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-
-  .compareWrap{
-    display:flex;gap:10px;flex-wrap:wrap;align-items:center;
-    margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
-  }
-  .toggle{
-    display:inline-flex;gap:8px;align-items:center;
-    padding:6px 10px;border-radius:999px;background:#121a2a;border:1px solid var(--border);
-    cursor:pointer;user-select:none
-  }
-  .toggle input{width:auto}
-  .hint{color:var(--muted);font-size:12px}
-
-  @media (max-width: 980px){
-    .controls{grid-template-columns:1fr}
-    .panes{grid-template-columns:1fr}
+  /* Auto-width chip for Total PnL cells */
+  .pnlChip{
+    display:inline-flex;        /* shrink-wrap to content */
+    align-items:center;
+    justify-content:flex-end;
+    width:fit-content;
+    max-width:100%;
+    padding:2px 10px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:#121a2a;
+    white-space:nowrap;
+    font-variant-numeric: tabular-nums;
   }
 </style>
 </head>
-
 <body>
 <div class="wrap">
   <div style="display:flex;align-items:center;justify-content:left;gap:12px;margin-bottom:12px">
       <a href="https://quantumyield.ai" target="_blank" rel="noopener noreferrer">
         <img src="https://quantumyield.ai/logo.jpg" alt="Quantum Yield Logo" style="height:36px;width:auto;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25)">
       </a>
-      <h2 style="margin:0">IDT Simulation</h2>
+      <h2 style="margin:0">Trading Optimizer (IDT)</h2>
   </div>
 
   <div class="sub">
-    <strong>Daily intra-day trading</strong> simulation using a rolling 30-day training window on L1/L2/L3 features.
-    Your risk and performance tolerances rank anchor horizons to surface the best-fit trading profiles.
+    Daily intra-day trading simulation with user-defined risk and performance preferences, ranking horizons to identify top-performing strategies.
   </div>
 
   <div class="controls">
@@ -161,51 +123,34 @@
         <div>
           <label for="instrument">Instrument</label>
           <select id="instrument">
-            <option value="ZN">ZN (10Y Treasury Futures)</option>
-            <option value="ES" selected>ES (S&P 500 Futures)</option>
+            <option value="ZN" selected>ZN (10Y Treasury Futures)</option>
+            <option value="ES">ES (S&P 500 Futures)</option>
           </select>
         </div>
         <div>
-          <label for="tagSel">View</label>
+          <label for="tagSel">IS/OS</label>
           <select id="tagSel">
-            <option value="AUTO" selected>Auto (prefer OS)</option>
-            <option value="OS">OS only</option>
-            <option value="IS">IS only</option>
+            <option value="OS" selected>OS</option>
+            <option value="IS">IS</option>
           </select>
-          <div class="foot">Auto picks <b>OS (out-sample)if present</b>; otherwise falls back to IS (in-sample).</div>
+          <div class="foot">Computed by asof vs model window</div>
         </div>
       </div>
-
-      <div class="compareWrap">
-        <label class="toggle" title="Show OS vs IS side-by-side deltas (scores + key metrics).">
-          <input id="compareToggle" type="checkbox" />
-          Compare OS ↔ IS
-        </label>
-        <span class="hint">Comparison uses same (asof,symbol) and shows OS minus IS deltas per horizon.</span>
-      </div>
-
-      <div class="tagbar" id="tagBar"></div>
       <div class="foot" id="status" style="margin-top:8px"></div>
     </div>
 
     <div class="card">
-      <label for="risk">Risk Tolerance</label>
+      <label for="risk">Risk Scale</label>
       <input id="risk" type="range" min="0" max="100" step="1" value="50" />
       <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
-      <div class="foot">
-        <b>Risk Score (0–10): safer/better is higher.</b><br/>
-        Computed from normalized Sharpe (good ↑), Turnover (good ↓), MaxDD (good ↓). Slider shifts their weights.
-      </div>
+      <div class="foot">Risk Score = wS·Sharpe − wT·Turnover − wD·MaxDD (scaled 0–10).</div>
     </div>
 
     <div class="card">
-      <label for="perf">Performance Tolerance</label>
+      <label for="perf">Performance Scale</label>
       <input id="perf" type="range" min="0" max="100" step="1" value="60" />
       <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
-      <div class="foot">
-        <b>Perf Score (0–10): better is higher.</b><br/>
-        Computed from normalized Total PnL (↑), Avg PnL (↑), Win% (↑). Slider shifts their weights.
-      </div>
+      <div class="foot">Perf Score = vP·(Total/100) + vA·Avg − vD·MaxDD − vC·(Turnover/1000) (scaled 0–10).</div>
     </div>
   </div>
 
@@ -219,34 +164,11 @@
           <option>4</option><option>5</option><option>6</option><option>7</option>
         </select>
         <span>anchors</span>
-        <span id="viewPill" class="pill tagUNK" style="margin-left:auto"></span>
       </div>
-      <div style="margin-top:10px"><b>Risk-based (safer / better higher)</b></div>
+      <div style="margin-top:10px"><b>Risk-based</b></div>
       <div id="recsRisk" class="recs"></div>
       <div style="margin-top:10px"><b>Performance-based</b></div>
       <div id="recsPerf" class="recs"></div>
-
-      <div id="compareBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-        <div class="section-title">OS ↔ IS Horizon Deltas (OS − IS)</div>
-        <div class="foot">If a horizon exists in only one tag, it will be omitted here.</div>
-        <div class="tableWrap">
-          <table id="cmpTable">
-            <thead>
-              <tr>
-                <th>Horizon</th>
-                <th>Δ RiskScore</th>
-                <th>Δ PerfScore</th>
-                <th>Δ Sharpe</th>
-                <th>Δ MaxDD</th>
-                <th>Δ TotalPnL</th>
-                <th>Δ Win%</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-
     </div>
   </div>
 
@@ -261,6 +183,7 @@
             <option value="Sharpe" selected>Sharpe</option>
             <option value="MaxDD">MaxDD</option>
             <option value="Turnover">Turnover</option>
+            <option value="Utility">Utility</option>
             <option value="riskScoreN">Risk Score (0–10)</option>
           </select>
           <span class="muted">Anchors</span>
@@ -268,6 +191,7 @@
           <button id="riskAnchorsNone" class="pill">None</button>
         </div>
 
+        <!-- ✅ scrollable checkbox region -->
         <div class="chk-scroll">
           <div id="anchorChecksRisk" class="chk-wrap"></div>
         </div>
@@ -278,19 +202,20 @@
 
       <div class="card">
         <div class="section-title">Risk Metrics</div>
-        <div class="tableWrap">
-          <table id="riskTable">
-            <thead>
-              <tr>
-                <th>Horizon (ms)</th>
-                <th>Sharpe</th>
-                <th>Turnover</th>
-                <th>MaxDD</th>
-                <th>Risk Score (0–10)</th>
-              </tr>
-            </thead><tbody></tbody>
-          </table>
-        </div>
+        <table id="riskTable">
+          <thead>
+            <tr>
+              <th>Horizon (ms)</th>
+              <th>τ</th>
+              <th>q</th>
+              <th>Sharpe</th>
+              <th>Turnover</th>
+              <th>MaxDD</th>
+              <th>Utility</th>
+              <th>Risk Score (0–10)</th>
+            </tr>
+          </thead><tbody></tbody>
+        </table>
       </div>
     </div>
 
@@ -313,6 +238,7 @@
           <button id="anchorsNone" class="pill">None</button>
         </div>
 
+        <!-- ✅ scrollable checkbox region -->
         <div class="chk-scroll">
           <div id="anchorChecks" class="chk-wrap"></div>
         </div>
@@ -323,21 +249,22 @@
 
       <div class="card">
         <div class="section-title">Simulation Results</div>
-        <div class="tableWrap">
-          <table id="simTable">
-            <thead>
-              <tr>
-                <th>Horizon</th>
-                <th>Trades</th>
-                <th>Total PnL (bps)</th>
-                <th>Avg PnL</th>
-                <th>Median PnL</th>
-                <th>Win %</th>
-                <th>Perf Score (0–10)</th>
-              </tr>
-            </thead><tbody></tbody>
-          </table>
-        </div>
+        <table id="simTable">
+          <thead>
+            <tr>
+              <th>Horizon</th>
+              <th>Trades</th>
+              <th>Total PnL (bps)</th>
+              <th>Avg PnL</th>
+              <th>Median PnL</th>
+              <th>Profit</th>
+              <th>Loss</th>
+              <th>Flat</th>
+              <th>Win %</th>
+              <th>Perf Score (0–10)</th>
+            </tr>
+          </thead><tbody></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -350,7 +277,7 @@ const JSON_URL = "./idt_daily_data.json";
 
 /* -------- Colors per metric -------- */
 const METRIC_COLORS = {
-  Sharpe:'#4ade80', MaxDD:'#ef4444', Turnover:'#f59e0b', riskScoreN:'#06b6d4',
+  Sharpe:'#4ade80', MaxDD:'#ef4444', Turnover:'#f59e0b', Utility:'#22c55e', riskScoreN:'#06b6d4',
   total_pnl_bps:'#60a5fa', avg_pnl_bps:'#a78bfa', med_pnl_bps:'#ec4899', win_pct:'#10b981', trades:'#f97316', perfScoreN:'#eab308'
 };
 
@@ -360,6 +287,7 @@ let lastRows=[];
 let renderSeq=0, currentKey="";
 let RAW=null;
 
+/* equalize the two top chart *cards* */
 function syncChartCardHeights(){
   const left = document.getElementById('riskCard');
   const right = document.getElementById('perfCard');
@@ -369,14 +297,16 @@ function syncChartCardHeights(){
   left.style.height = right.style.height = h + 'px';
 }
 
+/* ------------------------ Fetch JSON ------------------------ */
 async function loadJSON(){
   const r = await fetch(JSON_URL, {cache:"no-store"});
   if(!r.ok) throw new Error(`Failed to load ${JSON_URL} (${r.status})`);
   const j = await r.json();
-  if(!Array.isArray(j)) throw new Error("idt_daily_data.json must be an array of records");
+  if(!Array.isArray(j)) throw new Error("idt_daily_data_1.json must be an array of records");
   return j;
 }
 
+/* ------------------------ Helpers ------------------------ */
 function num(x, dflt=0){
   const v = +x;
   return Number.isFinite(v) ? v : dflt;
@@ -386,54 +316,24 @@ function yyyymmdd(asof){
   return (s.length === 8 && s.startsWith("20")) ? s : null;
 }
 
-/* --- Auto classify IS/OS as a safety check --- */
-function autoTag(asof, mstart, mend){
-  const A=String(asof||""), S=String(mstart||""), E=String(mend||"");
-  if(A.length!==8 || S.length!==8 || E.length!==8) return "UNK";
-  if(S > E) return "UNK";
-  return (S <= A && A <= E) ? "IS" : "OS";
-}
-function tagClass(t){
-  const T=String(t||"").toUpperCase();
-  if(T==="OS") return {cls:"tagOS", dot:"dotOS", label:"OS"};
-  if(T==="IS") return {cls:"tagIS", dot:"dotIS", label:"IS"};
-  return {cls:"tagUNK", dot:"dotUNK", label:"UNK"};
-}
-
+/* ------------------------ Populate As-of dropdown ------------------------ */
 function populateAsofs(){
   const sel = document.getElementById('asof');
-  const asofs = Array.from(new Set(RAW.map(r => yyyymmdd(r.asof)).filter(Boolean))).sort();
+  const asofs = Array.from(new Set(RAW.map(r => yyyymmdd(r.asof)).filter(Boolean)))
+    .sort(); // ascending
   sel.innerHTML = asofs.map(d=>`<option value="${d}">${d}</option>`).join('');
+
+  // default to latest
   if(asofs.length) sel.value = asofs[asofs.length-1];
 }
 
-/* Determine which tags exist for (asof,sym) */
-function tagsAvailable(asof, sym){
-  const SYM=String(sym||"").toUpperCase();
-  const ASOF=String(asof||"");
-  const tags = new Set(
-    RAW.filter(r => String(r.symbol||"").toUpperCase()===SYM && String(r.asof||"")===ASOF)
-       .map(r => String(r.tag||"").toUpperCase())
-       .filter(Boolean)
-  );
-  return Array.from(tags);
-}
-
-function resolveViewTag(viewMode, asof, sym){
-  const mode = String(viewMode||"AUTO").toUpperCase();
-  if(mode==="OS" || mode==="IS") return mode;
-  const avail = tagsAvailable(asof, sym);
-  if(avail.includes("OS")) return "OS";
-  if(avail.includes("IS")) return "IS";
-  return "OS";
-}
-
-/* Build rows for (asof,symbol,tag) */
+/* ------------------------ Build rows for (asof,symbol,tag) ------------------------ */
 function buildRowsFor(asof, sym, tag){
   const SYM = String(sym||"").toUpperCase();
   const TAG = String(tag||"").toUpperCase();
   const ASOF = String(asof||"");
 
+  // Filter to the exact slice we want
   const slice = RAW.filter(r =>
     String(r.symbol||"").toUpperCase() === SYM &&
     String(r.asof||"") === ASOF &&
@@ -442,116 +342,96 @@ function buildRowsFor(asof, sym, tag){
 
   if(!slice.length) return {rows:[], meta:null};
 
+  // Map into HFT_simulation-like per-horizon rows
   const rows = slice.map(r => {
       const h = num(r.horizon_ms ?? r.h_ms ?? r.horizon, NaN);
 
-      const Sharpe   = num(r.Sharpe ?? r.sharpe, NaN);
+      // Prefer explicit fields in JSON; fallback to compatible names
+      const Sharpe = num(r.Sharpe ?? r.sharpe, 0);
       const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades ?? r.count, 0);
-      const MaxDD    = num(r.MaxDD ?? r.maxdd ?? r.mxDD, 0);
+      const MaxDD = num(r.MaxDD ?? r.mxDD ?? r.maxdd, 0);
 
-      const avg    = num(r.avg_pnl_bps ?? r.mean_trades_bps ?? r.mean_all_bps, 0);
-      const med    = num(r.med_pnl_bps ?? r.median_bps, 0);
-      const winpct = Number.isFinite(num(r.win_pct, NaN)) ? num(r.win_pct)
-                   : (Number.isFinite(num(r.win_rate, NaN)) ? num(r.win_rate) : 0);
+      const Utility = Number.isFinite(num(r.Utility, NaN))
+        ? num(r.Utility)
+        : (Sharpe - 0.001*Turnover - 0.5*MaxDD);
 
-      const total  = Number.isFinite(num(r.total_pnl_bps, NaN)) ? num(r.total_pnl_bps) : (avg * Turnover);
+      const avg = num(r.avg_pnl_bps ?? r.mean_trades_bps ?? r.mean_all_bps, 0);
+      const total = Number.isFinite(num(r.total_pnl_bps, NaN)) ? num(r.total_pnl_bps) : (avg * Turnover);
+      const med = num(r.med_pnl_bps ?? r.median_bps ?? r.median_bps, 0);
 
-      const mstart = r.model_start;
-      const mend   = r.model_end;
-      const backendTag = String(r.tag||"").toUpperCase();
-      const aTag = autoTag(ASOF, mstart, mend); // safety check
-      const tagMismatch = (backendTag !== "UNK" && aTag !== "UNK" && backendTag !== aTag);
+      const profit = num(r.profit_trades, 0);
+      const loss   = num(r.losing_trades, 0);
+      const flat   = num(r.flat, 0);
+      const winpct = Number.isFinite(num(r.win_pct, NaN))
+        ? num(r.win_pct)
+        : (Number.isFinite(num(r.win_rate, NaN)) ? num(r.win_rate) : 0);
+
+      const tau = Number.isFinite(num(r.tau, NaN)) ? num(r.tau) : NaN;
+      const q   = Number.isFinite(num(r.q, NaN)) ? num(r.q) : NaN;
 
       return {
-        h_ms:h,
-
+        h_ms:h, tau, q,
         trades:Turnover,
         total_pnl_bps: total,
         avg_pnl_bps: avg,
         med_pnl_bps: med,
+        profit_trades: profit,
+        losing_trades: loss,
+        flat: flat,
         win_pct: winpct,
+        Sharpe, Turnover, MaxDD, Utility,
 
-        Sharpe: (Number.isFinite(Sharpe) ? Sharpe : null),
-        Turnover, MaxDD,
-
-        tag: backendTag,
-        auto_tag: aTag,
-        tag_mismatch: tagMismatch,
-
-        model_start: mstart,
-        model_end: mend,
+        // provenance (optional)
+        model_start: r.model_start,
+        model_end: r.model_end,
         src_file: r.src_file
       };
     })
     .filter(r => Number.isFinite(r.h_ms))
     .sort((a,b)=>a.h_ms-b.h_ms);
 
+  // Detect duplicates per horizon (should not happen after tag filter; if it does, show a warning)
   const dup = rows.length - new Set(rows.map(r=>r.h_ms)).size;
-  return { rows, meta:{asof:ASOF,symbol:SYM,tag:TAG,rows:rows.length,dup_horizons:dup} };
+
+  const meta = {
+    asof: ASOF,
+    symbol: SYM,
+    tag: TAG,
+    rows: rows.length,
+    dup_horizons: dup
+  };
+
+  return {rows, meta};
 }
 
-/* ------------------------ Normalization helpers ------------------------ */
-function minMaxBounds(rows, key){
-  const vals = rows.map(r => +r[key]).filter(v => Number.isFinite(v));
-  if(!vals.length) return {min:0, max:0};
-  return {min: Math.min(...vals), max: Math.max(...vals)};
+/* ------------------------ Scoring + Normalization ------------------------ */
+function riskWeights(x){ const t=x/100;  return {wS:0.6+0.3*t,  wT:0.0025-0.0017*t, wD:0.25-0.17*t}; }
+function perfWeights(x){ const t=x/100;  return {vP:0.3+0.4*t,   vA:0.1+0.2*t,      vD:0.25-0.2*t,   vC:1.0-0.75*t}; }
+function scoreRisk(r,W){ return W.wS*r.Sharpe - W.wT*r.Turnover - W.wD*r.MaxDD; }
+function scorePerf(r,P){
+  return P.vP*((+r.total_pnl_bps||0)/100) +
+         P.vA*(+r.avg_pnl_bps||0) -
+         P.vD*(+r.MaxDD||0) -
+         P.vC*((+r.Turnover||0)/1000);
 }
-function mm01(v, min, max){
-  if(!Number.isFinite(v)) return 0.5;
-  const span = (max - min);
-  if(!Number.isFinite(span) || span <= 1e-12) return 0.5;
-  return (v - min) / span;
-}
-function clamp01(x){ return Math.max(0, Math.min(1, x)); }
-
-/* ------------------------ Weights driven by sliders ------------------------ */
-function riskWeights(x){
-  const t = clamp01(x/100);
-  const sharpeW = 0.35 + 0.35*t;
-  const ddW     = 0.45 - 0.25*t;
-  const toW     = 0.20 - 0.10*t;
-  const s = sharpeW + ddW + toW;
-  return { wS: sharpeW/s, wD: ddW/s, wT: toW/s };
-}
-function perfWeights(x){
-  const t = clamp01(x/100);
-  const totW = 0.35 + 0.35*t;
-  const avgW = 0.15 + 0.15*t;
-  const winW = 0.50 - 0.50*t;
-  const s = totW + avgW + winW;
-  return { vTot: totW/s, vAvg: avgW/s, vWin: winW/s };
-}
-
-/* ------------------------ Scoring (INTUITIVE) ------------------------ */
-function recomputeScoresAndNormalize(){
-  if(!lastRows.length) return;
-
-  const bSharpe = minMaxBounds(lastRows, 'Sharpe');
-  const bTO     = minMaxBounds(lastRows, 'Turnover');
-  const bDD     = minMaxBounds(lastRows, 'MaxDD');
-
-  const bTot    = minMaxBounds(lastRows, 'total_pnl_bps');
-  const bAvg    = minMaxBounds(lastRows, 'avg_pnl_bps');
-  const bWin    = minMaxBounds(lastRows, 'win_pct');
-
-  const W = riskWeights(+document.getElementById('risk').value);
-  const P = perfWeights(+document.getElementById('perf').value);
-
-  lastRows.forEach(r=>{
-    const sharpeN = clamp01(mm01(num(r.Sharpe, NaN), bSharpe.min, bSharpe.max));
-    const toN     = clamp01(mm01(r.Turnover, bTO.min, bTO.max));
-    const ddN     = clamp01(mm01(r.MaxDD, bDD.min, bDD.max));
-
-    const riskRaw01 = (W.wS * sharpeN) + (W.wT * (1 - toN)) + (W.wD * (1 - ddN));
-    r.riskScoreN = 10 * clamp01(riskRaw01);
-
-    const totN = clamp01(mm01(r.total_pnl_bps, bTot.min, bTot.max));
-    const avgN = clamp01(mm01(r.avg_pnl_bps, bAvg.min, bAvg.max));
-    const winN = clamp01(mm01(r.win_pct, bWin.min, bWin.max));
-
-    const perfRaw01 = (P.vTot * totN) + (P.vAvg * avgN) + (P.vWin * winN);
-    r.perfScoreN = 10 * clamp01(perfRaw01);
+function normalizeTo0_10(rows, keyRaw, keyNorm){
+  const vals = rows.map(r => r[keyRaw]).filter(v => Number.isFinite(v));
+  const minV = Math.min(...vals), maxV = Math.max(...vals);
+  const span = maxV - minV;
+  rows.forEach(r=>{
+    let n = 5;
+    if (Number.isFinite(r[keyRaw]) && span > 1e-12){
+      n = 10 * ( (r[keyRaw] - minV) / span );
+    }
+    r[keyNorm] = n;
   });
+}
+function recomputeScoresAndNormalize(){
+  const W=riskWeights(+document.getElementById('risk').value);
+  const P=perfWeights(+document.getElementById('perf').value);
+  lastRows.forEach(r=>{ r._riskRaw = scoreRisk(r, W); r._perfRaw = scorePerf(r, P); });
+  normalizeTo0_10(lastRows, '_riskRaw', 'riskScoreN');
+  normalizeTo0_10(lastRows, '_perfRaw', 'perfScoreN');
 }
 
 /* ------------------------ Chart builders ------------------------ */
@@ -630,44 +510,42 @@ function renderTables(){
   rt.innerHTML = lastRows.map(r=>`
     <tr>
       <td>${r.h_ms}</td>
-      <td class="num">${(r.Sharpe===null ? '—' : num(r.Sharpe,0).toFixed(3))}</td>
+      <td class="num">${Number.isFinite(r.tau)?r.tau.toFixed(3):'—'}</td>
+      <td class="num">${Number.isFinite(r.q)?r.q.toFixed(2):'—'}</td>
+      <td class="num">${num(r.Sharpe,0).toFixed(3)}</td>
       <td class="num">${num(r.Turnover,0)}</td>
       <td class="num">${num(r.MaxDD,0).toFixed(3)}</td>
+      <td class="num">${num(r.Utility,0).toFixed(3)}</td>
       <td class="num">${num(r.riskScoreN,0).toFixed(1)}</td>
     </tr>`).join('');
 
   const st=document.querySelector('#simTable tbody');
   st.innerHTML = lastRows.map(r=>`
     <tr>
-      <heinzer style="display:none"></tr>
-    `).join('');
-
-  st.innerHTML = lastRows.map(r=>`
-    <tr>
       <td>${r.h_ms}</td>
       <td class="num">${num(r.trades,0)}</td>
-      <td class="num">${num(r.total_pnl_bps,0).toFixed(3)}</td>
+      <td class="num"><span class="pnlChip">${num(r.total_pnl_bps,0).toFixed(3)}</span></td>
       <td class="num">${num(r.avg_pnl_bps,0).toFixed(3)}</td>
       <td class="num">${num(r.med_pnl_bps,0).toFixed(3)}</td>
+      <td class="num">${num(r.profit_trades,0)}</td>
+      <td class="num">${num(r.losing_trades,0)}</td>
+      <td class="num">${num(r.flat,0)}</td>
       <td class="num">${num(r.win_pct,0).toFixed(1)}</td>
       <td class="num">${num(r.perfScoreN,0).toFixed(1)}</td>
     </tr>`).join('');
 }
 
+/* ------------------------ Recommendations ------------------------ */
 function updateRecommendations(){
   const topk = +document.getElementById('topk').value || 3;
-  recomputeScoresAndNormalize();
-
+  // recompute already called by charts, but safe if someone calls recs first
   const topRisk = lastRows.slice().sort((a,b)=>b.riskScoreN-a.riskScoreN).slice(0,topk);
   const topPerf = lastRows.slice().sort((a,b)=>b.perfScoreN-a.perfScoreN).slice(0,topk);
-
-  document.getElementById('recsRisk').innerHTML =
-    topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(1)}</span>`).join('');
-
-  document.getElementById('recsPerf').innerHTML =
-    topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(1)}</span>`).join('');
+  document.getElementById('recsRisk').innerHTML = topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(1)}</span>`).join('');
+  document.getElementById('recsPerf').innerHTML = topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(1)}</span>`).join('');
 }
 
+/* ------------------------ Font size sync (tables) ------------------------ */
 function scaleForWidth(px){ if(px <= 420) return 11; if(px <= 560) return 12; if(px <= 720) return 13; return 14; }
 function syncTableFontSizes(){
   const riskCanvas = document.getElementById('riskChart');
@@ -682,106 +560,11 @@ function syncTableFontSizes(){
   }
 }
 
-/* -------- Tag bar / status -------- */
-function renderTagBar(sym, asof, viewTag, rows){
-  const tagBar = document.getElementById('tagBar');
-  const viewPill = document.getElementById('viewPill');
-
-  const tinfo = tagClass(viewTag);
-  viewPill.className = `pill ${tinfo.cls}`;
-  viewPill.innerHTML = `<span class="badgeDot ${tinfo.dot}"></span><b>${tinfo.label}</b> view`;
-
-  if(!rows.length){
-    tagBar.innerHTML = '';
-    return;
-  }
-
-  // Collect metadata (use first row; all same file/window)
-  const r0 = rows[0];
-  const backend = String(r0.tag||"UNK");
-  const autoT = String(r0.auto_tag||"UNK");
-  const mismatch = rows.some(r=>r.tag_mismatch);
-
-  const b = tagClass(backend);
-  const a = tagClass(autoT);
-
-  const mismatchPill = mismatch
-    ? `<span class="pill tagBAD"><span class="badgeDot dotBAD"></span><b>TAG MISMATCH</b> backend=${backend} auto=${autoT}</span>`
-    : `<span class="pill tagOS" style="opacity:.75"><span class="badgeDot dotOS"></span>Tag check OK</span>`;
-
-  const backendPill = `<span class="pill ${b.cls}"><span class="badgeDot ${b.dot}"></span><b>backend:</b> ${backend}</span>`;
-  const autoPill    = `<span class="pill ${a.cls}"><span class="badgeDot ${a.dot}"></span><b>auto:</b> ${autoT}</span>`;
-
-  const winPill = `<span class="pill"><b>train window:</b> ${r0.model_start || '—'} → ${r0.model_end || '—'}</span>`;
-  const srcPill = `<span class="pill"><b>src:</b> ${r0.src_file || '—'}</span>`;
-
-  tagBar.innerHTML = backendPill + autoPill + mismatchPill + winPill + srcPill;
-}
-
-/* -------- Compare OS vs IS (same asof/sym) -------- */
-function renderCompare(asof, sym){
-  const box = document.getElementById('compareBox');
-  const on = document.getElementById('compareToggle').checked;
-  if(!on){
-    box.style.display = 'none';
-    return;
-  }
-
-  // Build both
-  const os = buildRowsFor(asof, sym, "OS").rows;
-  const is = buildRowsFor(asof, sym, "IS").rows;
-  if(!os.length || !is.length){
-    box.style.display = 'block';
-    document.querySelector('#cmpTable tbody').innerHTML =
-      `<tr><td colspan="7" class="muted">Need both OS and IS for this (asof,symbol). Found OS=${os.length} IS=${is.length}.</td></tr>`;
-    return;
-  }
-
-  // Recompute scores for each set under current sliders
-  const save = lastRows;
-
-  lastRows = os.slice(); recomputeScoresAndNormalize();
-  const osMap = new Map(lastRows.map(r=>[r.h_ms, {...r}]));
-
-  lastRows = is.slice(); recomputeScoresAndNormalize();
-  const isMap = new Map(lastRows.map(r=>[r.h_ms, {...r}]));
-
-  lastRows = save;
-
-  const common = Array.from(osMap.keys()).filter(h=>isMap.has(h)).sort((a,b)=>a-b);
-
-  const tbody = document.querySelector('#cmpTable tbody');
-  if(!common.length){
-    tbody.innerHTML = `<tr><td colspan="7" class="muted">No overlapping horizons between OS and IS.</td></tr>`;
-    box.style.display = 'block';
-    return;
-  }
-
-  const fmt = (v, d=2)=> (Number.isFinite(v) ? (+v).toFixed(d) : '—');
-
-  tbody.innerHTML = common.map(h=>{
-    const o = osMap.get(h), i = isMap.get(h);
-    return `
-      <tr>
-        <td>${h}</td>
-        <td class="num">${fmt(o.riskScoreN - i.riskScoreN, 2)}</td>
-        <td class="num">${fmt(o.perfScoreN - i.perfScoreN, 2)}</td>
-        <td class="num">${fmt((o.Sharpe??0) - (i.Sharpe??0), 3)}</td>
-        <td class="num">${fmt(o.MaxDD - i.MaxDD, 3)}</td>
-        <td class="num">${fmt(o.total_pnl_bps - i.total_pnl_bps, 3)}</td>
-        <td class="num">${fmt(o.win_pct - i.win_pct, 2)}</td>
-      </tr>`;
-  }).join('');
-
-  box.style.display = 'block';
-}
-
+/* ------------------------ Render ------------------------ */
 async function render(){
   const asof = document.getElementById('asof').value;
   const sym  = document.getElementById('instrument').value;
-
-  const viewMode = document.getElementById('tagSel').value;
-  const tag = resolveViewTag(viewMode, asof, sym);
+  const tag  = document.getElementById('tagSel').value;
 
   const key = `${asof}_${sym}_${tag}`;
   const seq = ++renderSeq; currentKey = key;
@@ -796,8 +579,6 @@ async function render(){
   document.getElementById('anchorChecks').innerHTML = '';
   document.getElementById('anchorChecksRisk').innerHTML = '';
   document.getElementById('status').textContent = '';
-  document.getElementById('tagBar').innerHTML = '';
-  document.getElementById('compareBox').style.display = 'none';
 
   if(!cache[key]){
     cache[key] = buildRowsFor(asof, sym, tag);
@@ -808,17 +589,12 @@ async function render(){
   lastRows = (built.rows || []).slice().sort((a,b)=>a.h_ms-b.h_ms);
 
   if(!lastRows.length){
-    const avail = tagsAvailable(asof, sym);
     document.getElementById('recsRisk').innerHTML =
-      `<span class="pill warn">No rows for ${sym} • ${asof} • tag=${tag} (available: ${avail.join(', ') || 'none'})</span>`;
+      `<span class="pill warn">No data for ${sym} • ${asof} • ${tag}</span>`;
     document.getElementById('status').textContent =
-      `Source: ${JSON_URL} • No rows for ${sym} asof=${asof} tag=${tag}`;
-    renderTagBar(sym, asof, tag, []);
+      `Source: ${JSON_URL} • No rows for ${sym} ${asof} ${tag}`;
     return;
   }
-
-  // Visible differentiation + safety check pills
-  renderTagBar(sym, asof, tag, lastRows);
 
   recomputeScoresAndNormalize();
   buildAnchorChecksRisk(lastRows); updateRiskChart();
@@ -828,52 +604,48 @@ async function render(){
   const dupMsg = (built.meta && built.meta.dup_horizons > 0)
     ? ` • WARNING: dup_horizons=${built.meta.dup_horizons}`
     : '';
-  const mismatch = lastRows.some(r=>r.tag_mismatch) ? " • TAG_MISMATCH=YES" : "";
   document.getElementById('status').textContent =
-    `Source: ${JSON_URL} • ${sym} • asof=${asof} • view=${tag}${mismatch} • rows=${lastRows.length}${dupMsg}`;
-
-  renderCompare(asof, sym);
+    `Source: ${JSON_URL} • ${sym} • asof=${asof} • tag=${tag} • rows=${lastRows.length}${dupMsg}`;
 }
 
+/* events */
 ['asof','instrument','tagSel','topk'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{
     render();
     setTimeout(syncChartCardHeights,0);
   });
 });
-
-document.getElementById('compareToggle').addEventListener('change', ()=>{
-  render(); // simplest: rerender compare table
-});
-
 ['risk','perf'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
     if(!lastRows.length) return;
+    // these will call recomputeScoresAndNormalize internally
     updateRiskChart();
     updatePerfChart();
-    updateRecommendations();
     syncTableFontSizes();
     syncChartCardHeights();
-
-    // update compare deltas live
-    const asof = document.getElementById('asof').value;
-    const sym  = document.getElementById('instrument').value;
-    renderCompare(asof, sym);
   });
 });
-
 window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeights(); });
 
+/* boot */
 (async function boot(){
   try{
     RAW = await loadJSON();
     RAW.forEach(r => {
       if(r.symbol) r.symbol = String(r.symbol).toUpperCase();
       if(r.tag) r.tag = String(r.tag).toUpperCase();
-      if(r.asof) r.asof = String(r.asof);
     });
 
     populateAsofs();
+
+    // If JSON has only OS initially, keep OS selected
+    const tags = Array.from(new Set(RAW.map(r=>String(r.tag||"").toUpperCase()).filter(Boolean)));
+    if(tags.includes("IS") && tags.includes("OS")){
+      // keep default OS
+    }else if(tags.length === 1){
+      document.getElementById('tagSel').value = tags[0];
+    }
+
     render();
   }catch(e){
     document.getElementById('recsRisk').innerHTML = `<span class="pill warn">${e?.message || e}</span>`;
