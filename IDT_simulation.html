@@ -503,27 +503,50 @@ function scorePerf(r, P, PS){
 }
 
 /* ---------- rank normalization avoids 10/10 ties ---------- */
-function normalizeRank0_10(rows, rawKey, normKey){
-  const vals = rows.map(r => ({h:r.h_ms, v:+r[rawKey]})).filter(o => Number.isFinite(o.v));
-  vals.sort((a,b)=>a.v-b.v);
+// function normalizeRank0_10(rows, rawKey, normKey){
+//   const vals = rows.map(r => ({h:r.h_ms, v:+r[rawKey]})).filter(o => Number.isFinite(o.v));
+//   vals.sort((a,b)=>a.v-b.v);
+
+//   if(!vals.length){
+//     rows.forEach(r => r[normKey] = 5);
+//     return;
+//   }
+//   const allSame = vals[0].v === vals[vals.length-1].v;
+//   if(allSame){
+//     rows.forEach(r => r[normKey] = 5);
+//     return;
+//   }
+
+//   const rankMap = new Map();
+//   for(let i=0;i<vals.length;i++){
+//     const pct = i/(vals.length-1); // 0..1
+//     rankMap.set(vals[i].h, 10*pct);
+//   }
+//   rows.forEach(r=>{
+//     r[normKey] = rankMap.has(r.h_ms) ? rankMap.get(r.h_ms) : 5;
+//   });
+// }
+function normalizeRobust0_10(rows, rawKey, normKey){
+  const vals = rows.map(r => +r[rawKey]).filter(v => Number.isFinite(v)).sort((a,b)=>a-b);
 
   if(!vals.length){
     rows.forEach(r => r[normKey] = 5);
     return;
   }
-  const allSame = vals[0].v === vals[vals.length-1].v;
-  if(allSame){
+
+  const p10 = _quantile(vals, 0.10);
+  const p90 = _quantile(vals, 0.90);
+
+  // If nearly constant, avoid divide-by-zero and show neutral scores
+  if(!Number.isFinite(p10) || !Number.isFinite(p90) || Math.abs(p90 - p10) < 1e-12){
     rows.forEach(r => r[normKey] = 5);
     return;
   }
 
-  const rankMap = new Map();
-  for(let i=0;i<vals.length;i++){
-    const pct = i/(vals.length-1); // 0..1
-    rankMap.set(vals[i].h, 10*pct);
-  }
   rows.forEach(r=>{
-    r[normKey] = rankMap.has(r.h_ms) ? rankMap.get(r.h_ms) : 5;
+    const v = +r[rawKey];
+    const u = _robust01(v, p10, p90);   // 0..1 (clipped)
+    r[normKey] = 10 * u;               // 0..10
   });
 }
 
@@ -581,8 +604,10 @@ function recomputeScoresAndNormalize(){
     r._perfRaw = scorePerf(r, P, PS);
   });
 
-  normalizeRank0_10(lastRows, '_riskRaw', 'riskScoreN');
-  normalizeRank0_10(lastRows, '_perfRaw', 'perfScoreN');
+  // normalizeRank0_10(lastRows, '_riskRaw', 'riskScoreN');
+  // normalizeRank0_10(lastRows, '_perfRaw', 'perfScoreN');
+  normalizeRobust0_10(lastRows, '_riskRaw', 'riskScoreN');
+  normalizeRobust0_10(lastRows, '_perfRaw', 'perfScoreN');
 
   // ✅ Debug logs (include 2000 / 1800000 / 3600000 etc)
   const dbg = [2000, 5000, 10000, 1200000, 1800000, 3600000];
