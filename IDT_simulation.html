@@ -85,7 +85,7 @@
 
   /* Auto-width chip for Total PnL cells */
   .pnlChip{
-    display:inline-flex;        /* shrink-wrap to content */
+    display:inline-flex;
     align-items:center;
     justify-content:flex-end;
     width:fit-content;
@@ -150,7 +150,9 @@
       <label for="perf">Performance Scale</label>
       <input id="perf" type="range" min="0" max="100" step="1" value="60" />
       <div class="slider-labels"><span>Conservative</span><span>Balanced</span><span>Aggressive</span></div>
-      <div class="foot">Perf Score = vP·(Total/100) + vA·Avg − vD·MaxDD − vC·(Turnover/1000) (scaled 0–10).</div>
+      <div class="foot">
+        Perf Score uses ONLY these 5 metrics: Total, Avg, Median, Win%, Trades (robust-scaled, 0–10).
+      </div>
     </div>
   </div>
 
@@ -180,18 +182,17 @@
         <div class="panel-controls">
           <label for="riskMetricSel">Metric</label>
           <select id="riskMetricSel" class="small-select">
-            <option value="Sharpe" selected>Sharpe</option>
+            <option value="Sharpe">Sharpe</option>
             <option value="MaxDD">MaxDD</option>
             <option value="Turnover">Turnover</option>
             <option value="Utility">Utility</option>
-            <option value="riskScoreN">Risk Score (0–10)</option>
+            <option value="riskScoreN" selected>Risk Score (0–10)</option>
           </select>
           <span class="muted">Anchors</span>
           <button id="riskAnchorsAll" class="pill">All</button>
           <button id="riskAnchorsNone" class="pill">None</button>
         </div>
 
-        <!-- ✅ scrollable checkbox region -->
         <div class="chk-scroll">
           <div id="anchorChecksRisk" class="chk-wrap"></div>
         </div>
@@ -229,16 +230,15 @@
             <option value="total_pnl_bps">Total PnL (bps)</option>
             <option value="avg_pnl_bps">Avg PnL (bps)</option>
             <option value="med_pnl_bps">Median PnL (bps)</option>
-            <option value="win_pct" selected>Win %</option>
+            <option value="win_pct">Win %</option>
             <option value="trades">Trades</option>
-            <option value="perfScoreN">Perf Score (0–10)</option>
+            <option value="perfScoreN" selected>Perf Score (0–10)</option>
           </select>
           <span class="muted">Anchors</span>
           <button id="anchorsAll" class="pill">All</button>
           <button id="anchorsNone" class="pill">None</button>
         </div>
 
-        <!-- ✅ scrollable checkbox region -->
         <div class="chk-scroll">
           <div id="anchorChecks" class="chk-wrap"></div>
         </div>
@@ -342,12 +342,12 @@ function buildRowsFor(asof, sym, tag){
 
   if(!slice.length) return {rows:[], meta:null};
 
-  // Map into HFT_simulation-like per-horizon rows
+  // Map into per-horizon rows
   const rows = slice.map(r => {
       const h = num(r.horizon_ms ?? r.h_ms ?? r.horizon, NaN);
 
       // Prefer explicit fields in JSON; fallback to compatible names
-      const Sharpe = num(r.Sharpe ?? r.sharpe, 0);
+      const Sharpe = Number.isFinite(+ (r.Sharpe ?? r.sharpe)) ? +(r.Sharpe ?? r.sharpe) : NaN;
       const Turnover = num(r.Turnover ?? r.num_trades ?? r.trades ?? r.count, 0);
       const MaxDD = num(r.MaxDD ?? r.mxDD ?? r.maxdd, 0);
 
@@ -390,7 +390,7 @@ function buildRowsFor(asof, sym, tag){
     .filter(r => Number.isFinite(r.h_ms))
     .sort((a,b)=>a.h_ms-b.h_ms);
 
-  // Detect duplicates per horizon (should not happen after tag filter; if it does, show a warning)
+  // Detect duplicates per horizon
   const dup = rows.length - new Set(rows.map(r=>r.h_ms)).size;
 
   const meta = {
@@ -404,34 +404,198 @@ function buildRowsFor(asof, sym, tag){
   return {rows, meta};
 }
 
-/* ------------------------ Scoring + Normalization ------------------------ */
-function riskWeights(x){ const t=x/100;  return {wS:0.6+0.3*t,  wT:0.0025-0.0017*t, wD:0.25-0.17*t}; }
-function perfWeights(x){ const t=x/100;  return {vP:0.3+0.4*t,   vA:0.1+0.2*t,      vD:0.25-0.2*t,   vC:1.0-0.75*t}; }
-function scoreRisk(r,W){ return W.wS*r.Sharpe - W.wT*r.Turnover - W.wD*r.MaxDD; }
-function scorePerf(r,P){
-  return P.vP*((+r.total_pnl_bps||0)/100) +
-         P.vA*(+r.avg_pnl_bps||0) -
-         P.vD*(+r.MaxDD||0) -
-         P.vC*((+r.Turnover||0)/1000);
+/* ============================================================================
+   ✅ REVISED TOP-K SCORING (INTUITION-FIXED)
+   Uses ONLY the 3 risk metrics and 5 performance metrics.
+   Adds dominance filtering (Perf) so a worse-across-all horizon can't win.
+   Fixes DD unit scale if it looks like bps.
+   Fixes Sharpe missing behavior (no more -10 forcing tiny horizons to “win”).
+   Uses rank-based normalization to avoid ties at 10.
+   ============================================================================ */
+
+/* ---------- robust scaling helpers ---------- */
+function _finiteVals(rows, key){
+  return rows.map(r => +r[key]).filter(v => Number.isFinite(v));
 }
-function normalizeTo0_10(rows, keyRaw, keyNorm){
-  const vals = rows.map(r => r[keyRaw]).filter(v => Number.isFinite(v));
-  const minV = Math.min(...vals), maxV = Math.max(...vals);
-  const span = maxV - minV;
+function _quantile(sortedVals, q){
+  if(!sortedVals.length) return NaN;
+  const pos = (sortedVals.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if(lo === hi) return sortedVals[lo];
+  const t = pos - lo;
+  return sortedVals[lo] * (1 - t) + sortedVals[hi] * t;
+}
+function _robust01(v, p10, p90){
+  if(!Number.isFinite(v) || !Number.isFinite(p10) || !Number.isFinite(p90) || p90 <= p10) return 0.5;
+  const x = (v - p10) / (p90 - p10);
+  return Math.max(0, Math.min(1, x));
+}
+function _robustStats(rows, key){
+  const vals = _finiteVals(rows, key).sort((a,b)=>a-b);
+  return {
+    p10: _quantile(vals, 0.10),
+    p50: _quantile(vals, 0.50),
+    p90: _quantile(vals, 0.90),
+    min: vals.length ? vals[0] : NaN,
+    max: vals.length ? vals[vals.length-1] : NaN
+  };
+}
+
+/* ---------- unit sanity ---------- */
+function _ensureDDScale(rows){
+  const ddVals = _finiteVals(rows, 'MaxDD');
+  if(!ddVals.length) return;
+
+  const p90 = _quantile(ddVals.slice().sort((a,b)=>a-b), 0.90);
+
+  // If MaxDD looks like bps (e.g. 982, 3139), convert bps->pct.
+  if(p90 > 50){
+    rows.forEach(r=>{
+      if(Number.isFinite(+r.MaxDD)) r.MaxDD = (+r.MaxDD)/100; // bps -> pct
+    });
+    console.log("[DD SCALE] MaxDD looked like bps; converted MaxDD = MaxDD/100 (bps->pct)");
+  }
+}
+function _ensureSharpePresent(rows){
+  const sharpeVals = _finiteVals(rows, 'Sharpe');
+  if(sharpeVals.length >= Math.max(3, Math.floor(rows.length * 0.5))) return;
+  console.warn("[SHARPE] Sharpe missing for many rows. Risk score degrades. Check JSON mapping for Sharpe.");
+}
+
+/* ---------- slider weights ---------- */
+function riskWeights(x){
+  const t = x/100;
+  // Intuition: conservative -> punish DD & trades more; aggressive -> reward Sharpe more.
+  return { wS: 0.8 + 0.6*t, wD: 1.2 - 0.5*t, wT: 0.6 - 0.25*t };
+}
+function perfWeights(x){
+  const t = x/100;
+  // Intuition: total/avg/median/win become more important when aggressive; trades penalty softens.
+  return { vTot: 0.7 + 0.9*t, vAvg: 0.5 + 0.8*t, vMed: 0.3 + 0.6*t, vWin: 0.4 + 0.7*t, vTrd: 0.35 - 0.15*t };
+}
+
+/* ---------- risk/perf scoring using only your metrics ---------- */
+function scoreRisk(r, W, RS){
+  const uSharpe = _robust01(+r.Sharpe, RS.Sharpe.p10, RS.Sharpe.p90);      // higher better
+  const uDD     = 1 - _robust01(+r.MaxDD, RS.MaxDD.p10, RS.MaxDD.p90);     // lower better
+  const uTrd    = 1 - _robust01(+r.trades, RS.trades.p10, RS.trades.p90);  // lower better
+
+  const sharpeOk = Number.isFinite(+r.Sharpe);
+  const wS = sharpeOk ? W.wS : (0.25 * W.wS); // don’t nuke everything when Sharpe missing
+
+  // raw score: higher better
+  return (wS*uSharpe) + (W.wD*uDD) + (W.wT*uTrd);
+}
+
+function scorePerf(r, P, PS){
+  const uTot = _robust01(+r.total_pnl_bps, PS.total_pnl_bps.p10, PS.total_pnl_bps.p90);
+  const uAvg = _robust01(+r.avg_pnl_bps,   PS.avg_pnl_bps.p10,   PS.avg_pnl_bps.p90);
+  const uMed = _robust01(+r.med_pnl_bps,   PS.med_pnl_bps.p10,   PS.med_pnl_bps.p90);
+  const uWin = _robust01(+r.win_pct,       PS.win_pct.p10,       PS.win_pct.p90);
+  const uTrd = 1 - _robust01(+r.trades,    PS.trades.p10,        PS.trades.p90);
+
+  // Intuition hard stop: negative total pnl should not be “top” unless everything is negative.
+  const totalNeg = Number.isFinite(+r.total_pnl_bps) && (+r.total_pnl_bps < 0);
+  const negPenalty = totalNeg ? 0.25 : 0;
+
+  return (P.vTot*uTot) + (P.vAvg*uAvg) + (P.vMed*uMed) + (P.vWin*uWin) + (P.vTrd*uTrd) - negPenalty;
+}
+
+/* ---------- rank normalization avoids 10/10 ties ---------- */
+function normalizeRank0_10(rows, rawKey, normKey){
+  const vals = rows.map(r => ({h:r.h_ms, v:+r[rawKey]})).filter(o => Number.isFinite(o.v));
+  vals.sort((a,b)=>a.v-b.v);
+
+  if(!vals.length){
+    rows.forEach(r => r[normKey] = 5);
+    return;
+  }
+  const allSame = vals[0].v === vals[vals.length-1].v;
+  if(allSame){
+    rows.forEach(r => r[normKey] = 5);
+    return;
+  }
+
+  const rankMap = new Map();
+  for(let i=0;i<vals.length;i++){
+    const pct = i/(vals.length-1); // 0..1
+    rankMap.set(vals[i].h, 10*pct);
+  }
   rows.forEach(r=>{
-    let n = 5;
-    if (Number.isFinite(r[keyRaw]) && span > 1e-12){
-      n = 10 * ( (r[keyRaw] - minV) / span );
-    }
-    r[keyNorm] = n;
+    r[normKey] = rankMap.has(r.h_ms) ? rankMap.get(r.h_ms) : 5;
   });
 }
+
+/* ---------- dominance filter (Perf) ---------- */
+function dominatesPerf(a, b){
+  // a dominates b if a is >= on all “good” metrics and <= on trades, with at least one strict improvement
+  const hi = ["total_pnl_bps","avg_pnl_bps","med_pnl_bps","win_pct"];
+  const lo = ["trades"];
+
+  let geAll = true;
+  let gtAny = false;
+
+  for(const k of hi){
+    const va = +a[k], vb = +b[k];
+    if(!(va >= vb)) geAll = false;
+    if(va > vb) gtAny = true;
+  }
+  for(const k of lo){
+    const va = +a[k], vb = +b[k];
+    if(!(va <= vb)) geAll = false;
+    if(va < vb) gtAny = true;
+  }
+  return geAll && gtAny;
+}
+function filterDominatedPerf(rows){
+  return rows.filter(r => !rows.some(o => o !== r && dominatesPerf(o, r)));
+}
+
+/* ---------- recompute ---------- */
 function recomputeScoresAndNormalize(){
-  const W=riskWeights(+document.getElementById('risk').value);
-  const P=perfWeights(+document.getElementById('perf').value);
-  lastRows.forEach(r=>{ r._riskRaw = scoreRisk(r, W); r._perfRaw = scorePerf(r, P); });
-  normalizeTo0_10(lastRows, '_riskRaw', 'riskScoreN');
-  normalizeTo0_10(lastRows, '_perfRaw', 'perfScoreN');
+  if(!lastRows || !lastRows.length) return;
+
+  _ensureDDScale(lastRows);
+  _ensureSharpePresent(lastRows);
+
+  const RS = {
+    Sharpe: _robustStats(lastRows, 'Sharpe'),
+    MaxDD:  _robustStats(lastRows, 'MaxDD'),
+    trades: _robustStats(lastRows, 'trades')
+  };
+
+  const PS = {
+    total_pnl_bps: _robustStats(lastRows, 'total_pnl_bps'),
+    avg_pnl_bps:   _robustStats(lastRows, 'avg_pnl_bps'),
+    med_pnl_bps:   _robustStats(lastRows, 'med_pnl_bps'),
+    win_pct:       _robustStats(lastRows, 'win_pct'),
+    trades:        _robustStats(lastRows, 'trades')
+  };
+
+  const W = riskWeights(+document.getElementById('risk').value);
+  const P = perfWeights(+document.getElementById('perf').value);
+
+  lastRows.forEach(r=>{
+    r._riskRaw = scoreRisk(r, W, RS);
+    r._perfRaw = scorePerf(r, P, PS);
+  });
+
+  normalizeRank0_10(lastRows, '_riskRaw', 'riskScoreN');
+  normalizeRank0_10(lastRows, '_perfRaw', 'perfScoreN');
+
+  // ✅ Debug logs (include 2000 / 1800000 / 3600000 etc)
+  const dbg = [2000, 5000, 10000, 1200000, 1800000, 3600000];
+  dbg.forEach(h=>{
+    const r = lastRows.find(x=>x.h_ms===h);
+    if(!r) return;
+    console.log("[SCORE DBG]", h, {
+      Sharpe:r.Sharpe, MaxDD:r.MaxDD, trades:r.trades,
+      total:r.total_pnl_bps, avg:r.avg_pnl_bps, med:r.med_pnl_bps, win:r.win_pct,
+      riskRaw:r._riskRaw, riskN:r.riskScoreN,
+      perfRaw:r._perfRaw, perfN:r.perfScoreN
+    });
+  });
 }
 
 /* ------------------------ Chart builders ------------------------ */
@@ -516,7 +680,7 @@ function renderTables(){
       <td class="num">${num(r.Turnover,0)}</td>
       <td class="num">${num(r.MaxDD,0).toFixed(3)}</td>
       <td class="num">${num(r.Utility,0).toFixed(3)}</td>
-      <td class="num">${num(r.riskScoreN,0).toFixed(1)}</td>
+      <td class="num">${num(r.riskScoreN,0).toFixed(2)}</td>
     </tr>`).join('');
 
   const st=document.querySelector('#simTable tbody');
@@ -531,18 +695,56 @@ function renderTables(){
       <td class="num">${num(r.losing_trades,0)}</td>
       <td class="num">${num(r.flat,0)}</td>
       <td class="num">${num(r.win_pct,0).toFixed(1)}</td>
-      <td class="num">${num(r.perfScoreN,0).toFixed(1)}</td>
+      <td class="num">${num(r.perfScoreN,0).toFixed(2)}</td>
     </tr>`).join('');
 }
 
-/* ------------------------ Recommendations ------------------------ */
+/* ------------------------ Recommendations (TOP-K MODULE) ------------------------ */
 function updateRecommendations(){
   const topk = +document.getElementById('topk').value || 3;
-  // recompute already called by charts, but safe if someone calls recs first
-  const topRisk = lastRows.slice().sort((a,b)=>b.riskScoreN-a.riskScoreN).slice(0,topk);
-  const topPerf = lastRows.slice().sort((a,b)=>b.perfScoreN-a.perfScoreN).slice(0,topk);
-  document.getElementById('recsRisk').innerHTML = topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(1)}</span>`).join('');
-  document.getElementById('recsPerf').innerHTML = topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(1)}</span>`).join('');
+
+  // Make sure scores exist
+  recomputeScoresAndNormalize();
+
+  // Risk: sort by riskScoreN, tie-break by lower DD then higher Sharpe then lower trades
+  const topRisk = lastRows.slice()
+    .sort((a,b)=>
+      (b.riskScoreN - a.riskScoreN) ||
+      ((+a.MaxDD||0) - (+b.MaxDD||0)) ||
+      ((+b.Sharpe||-1e9) - (+a.Sharpe||-1e9)) ||
+      ((+a.trades||0) - (+b.trades||0))
+    )
+    .slice(0, topk);
+
+  // Perf: dominance filter first (intuition), then score, then tie-breakers
+  const perfPool = filterDominatedPerf(lastRows.slice());
+
+  const topPerf = perfPool
+    .sort((a,b)=>
+      (b.perfScoreN - a.perfScoreN) ||
+      ((+b.total_pnl_bps||0) - (+a.total_pnl_bps||0)) ||
+      ((+b.avg_pnl_bps||0)   - (+a.avg_pnl_bps||0)) ||
+      ((+b.win_pct||0)       - (+a.win_pct||0)) ||
+      ((+a.trades||0)        - (+b.trades||0))
+    )
+    .slice(0, topk);
+
+  document.getElementById('recsRisk').innerHTML =
+    topRisk.map((r,i)=>`<span class="pill ${i===0?'good':'warn'}">${r.h_ms} ms • ${r.riskScoreN.toFixed(2)}</span>`).join('');
+
+  document.getElementById('recsPerf').innerHTML =
+    topPerf.map((r,i)=>`<span class="pill ${i===0?'good':'alt'}">${r.h_ms} ms • ${r.perfScoreN.toFixed(2)}</span>`).join('');
+
+  // Console audit (exactly what you printed earlier)
+  console.log("🏁 TOP-K");
+  console.table(topRisk.map(r=>({
+    h_ms:r.h_ms, riskScoreN:+r.riskScoreN.toFixed(2), _riskRaw:+r._riskRaw.toFixed(4),
+    Sharpe:r.Sharpe, trades:r.trades, MaxDD:r.MaxDD
+  })));
+  console.table(topPerf.map(r=>({
+    h_ms:r.h_ms, perfScoreN:+r.perfScoreN.toFixed(2), _perfRaw:+r._perfRaw.toFixed(4),
+    total:r.total_pnl_bps, avg:r.avg_pnl_bps, med:r.med_pnl_bps, win:r.win_pct, trades:r.trades
+  })));
 }
 
 /* ------------------------ Font size sync (tables) ------------------------ */
@@ -618,7 +820,6 @@ async function render(){
 ['risk','perf'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
     if(!lastRows.length) return;
-    // these will call recomputeScoresAndNormalize internally
     updateRiskChart();
     updatePerfChart();
     syncTableFontSizes();
@@ -652,6 +853,7 @@ window.addEventListener('resize', ()=>{ syncTableFontSizes(); syncChartCardHeigh
     document.getElementById('status').textContent = `Load error: ${e?.message || e}`;
   }
 })();
+
 </script>
 </body>
 </html>
