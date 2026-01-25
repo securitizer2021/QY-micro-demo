@@ -58,12 +58,12 @@
             <div id="dropdownMenu" class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white text-gray-900 ring-1 ring-black ring-opacity-5 z-50">
               <div class="py-1" role="none">
                 <a href="/" class="block px-4 py-2 text-sm hover:bg-gray-100">Home</a>
-                <!-- <a href="HFT_oos.html"
+                <a href="HFT_oos.html"
                    onclick="window.location.href='HFT_oos.html'; return false;"
                    class="block px-4 py-2 text-sm hover:bg-gray-100">Efficient Frontier</a>
                 <a href="HFT_simulation.html"
                    onclick="window.location.href='HFT_simulation.html'; return false;"
-                   class="block px-4 py-2 text-sm hover:bg-gray-100">HFT Simulation</a>  -->
+                   class="block px-4 py-2 text-sm hover:bg-gray-100">HFT Simulation</a> 
                 <a href="IDT_simulation.html"
                    onclick="window.location.href='IDT_simulation.html'; return false;"
                    class="block px-4 py-2 text-sm hover:bg-gray-100">IDT Simulation</a> 
@@ -91,8 +91,8 @@
           <tr>
             <th class="py-2 pr-4 text-left"></th>
 
-            <th class="py-2 pr-4 text-center" colspan="3">Paper Trading</th>
-            <th class="py-2 pr-4 text-center col-split" colspan="3">In-Sample Testing</th>
+            <th class="py-2 pr-4 text-center" colspan="3">OS</th>
+            <th class="py-2 pr-4 text-center col-split" colspan="3">IS</th>
           </tr>
 
           <!-- Bottom header row (ALL columns aligned here) -->
@@ -480,11 +480,11 @@
 
   async function run() {
     try {
-      meta.textContent = "Loading idt_daily_data.json…";
-      const res = await fetch("./idt_daily_data.json", { cache: "no-store" });
+      meta.textContent = "Loading idt|hft_daily_data.json…";
+      const res = await fetch("./daily_data.json", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const rows = await res.json();
-      if (!Array.isArray(rows)) throw new Error("idt_daily_data.json must be an array.");
+      if (!Array.isArray(rows)) throw new Error("idt|hft_daily_data.json must be an array.");
 
       const bySymbol = groupBySymbol(rows);
       tbody.innerHTML = "";

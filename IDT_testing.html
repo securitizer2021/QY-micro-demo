@@ -1107,7 +1107,7 @@ function render(){
 
 /* ---------- load ---------- */
 async function main(){
-  const res = await fetch("idt_daily_data.json?v="+Date.now(), {cache:"no-store"});
+  const res = await fetch("daily_data.json?v="+Date.now(), {cache:"no-store"});
   DATA = await res.json();
 
   DATA.forEach(d=>{
