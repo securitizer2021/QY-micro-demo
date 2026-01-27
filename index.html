@@ -480,11 +480,11 @@
 
   async function run() {
     try {
-      meta.textContent = "Loading idt|hft_daily_data.json…";
+      meta.textContent = "Loading daily_data.json…";
       const res = await fetch("./daily_data.json", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const rows = await res.json();
-      if (!Array.isArray(rows)) throw new Error("idt|hft_daily_data.json must be an array.");
+      if (!Array.isArray(rows)) throw new Error("daily_data.json must be an array.");
 
       const bySymbol = groupBySymbol(rows);
       tbody.innerHTML = "";
