@@ -29,6 +29,10 @@
       backdrop-filter: blur(10px);
     }
     .col-split { border-left: 2px solid rgba(255,255,255,0.15); }
+    .cell-recent {
+      white-space: nowrap;
+      min-width: 140px;
+    }
   </style>
   
   <!-- Cloudflare Web Analytics -->
@@ -468,7 +472,7 @@
       <td class="py-2 pr-4 font-semibold">${sym}</td>
 
       <td class="py-2 pr-4">${cellTextTop(rptOS?.top)}</td>
-      <td class="py-2 pr-4  whitespace-nowrap min-w-[140px]">${cellTextRecent(rptOS?.bestRecent)}</td>
+      <td class="py-2 pr-4 cell-recent">${cellTextRecent(rptOS?.bestRecent)}</td>
       <td class="py-2 pr-4 text-gray-300">${fmtDate(rptOS?.latestDate)}</td>
 
       <td class="py-2 pr-4 col-split">${cellTextTop(rptIS?.top)}</td>
