@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quantum Yield Microstructure</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
@@ -20,258 +24,264 @@
       font-family: 'Segoe UI', sans-serif;
       background-color: #0f172a;
     }
-    section {
-      padding: 80px 20px;
-    }
+    section { padding: 80px 20px; }
     .glass {
       background-color: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
     }
     .col-split { border-left: 2px solid rgba(255,255,255,0.15); }
+
+    /* Keep the "Most Recent Best" cell from wrapping/chopping */
     .cell-recent {
       white-space: nowrap;
-      min-width: 140px;
+      min-width: 160px;
     }
   </style>
-  
+
   <!-- Cloudflare Web Analytics -->
-  <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a0626fdb5f174814b045ec34f2b1fd3b"}'>
-  </script>
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js'
+          data-cf-beacon='{"token": "a0626fdb5f174814b045ec34f2b1fd3b"}'></script>
   <!-- End Cloudflare Web Analytics -->
 </head>
 
 <body class="text-gray-100">
   <header class="bg-white text-black p-4 border-b border-gray-300 flex justify-between items-center relative">
-        <a href="https://quantumyield.ai" target="_blank">
-            <img src="QY_logo_web.jpg" alt="Quantum Yield Logo">
-        </a>
-        <h1 class="text-4xl font-bold absolute left-1/2 transform -translate-x-1/2">Quantum Yield Microstructure Alpha Portal</h1>
-        <nav>
-          <div class="relative inline-block text-left">
-            <!-- Menu Button -->
-            <button id="menu-button" aria-expanded="false" aria-haspopup="true" class="focus:outline-none">
-              <!-- Icon-Only Menu Button -->
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+    <a href="https://quantumyield.ai" target="_blank">
+      <img src="QY_logo_web.jpg" alt="Quantum Yield Logo">
+    </a>
+    <h1 class="text-4xl font-bold absolute left-1/2 transform -translate-x-1/2">
+      Quantum Yield Microstructure Alpha Portal
+    </h1>
 
-            <!-- Dropdown Menu -->
-            <div id="dropdownMenu" class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white text-gray-900 ring-1 ring-black ring-opacity-5 z-50">
-              <div class="py-1" role="none">
-                <a href="/" class="block px-4 py-2 text-sm hover:bg-gray-100">Home</a>
-                <!-- <a href="HFT_oos.html"
-                   onclick="window.location.href='HFT_oos.html'; return false;"
-                   class="block px-4 py-2 text-sm hover:bg-gray-100">Efficient Frontier</a>
-                <a href="HFT_simulation.html"
-                   onclick="window.location.href='HFT_simulation.html'; return false;"
-                   class="block px-4 py-2 text-sm hover:bg-gray-100">HFT Simulation</a> --> 
-                <a href="IDT_simulation.html"
-                   onclick="window.location.href='IDT_simulation.html'; return false;"
-                   class="block px-4 py-2 text-sm hover:bg-gray-100">Simulation</a> 
-                <a href="IDT_testing.html"
-                   onclick="window.location.href='IDT_testing.html'; return false;"
-                   class="block px-4 py-2 text-sm hover:bg-gray-100">Testing</a>   
-              </div>
-            </div>
+    <nav>
+      <div class="relative inline-block text-left">
+        <button id="menu-button" aria-expanded="false" aria-haspopup="true" class="focus:outline-none">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
+        <div id="dropdownMenu"
+             class="hidden absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white text-gray-900 ring-1 ring-black ring-opacity-5 z-50">
+          <div class="py-1" role="none">
+            <a href="/" class="block px-4 py-2 text-sm hover:bg-gray-100">Home</a>
+            <a href="IDT_simulation.html"
+               onclick="window.location.href='IDT_simulation.html'; return false;"
+               class="block px-4 py-2 text-sm hover:bg-gray-100">Simulation</a>
+            <a href="IDT_testing.html"
+               onclick="window.location.href='IDT_testing.html'; return false;"
+               class="block px-4 py-2 text-sm hover:bg-gray-100">Testing</a>
           </div>
-        </nav>
+        </div>
+      </div>
+    </nav>
   </header>
 
-<!-- IDT WIN RATE SUMMARY (per symbol) -->
-<section class="py-10">
-  <h2 class="text-3xl font-bold text-center mb-4">Win Rate Summary</h2>
-  <p class="text-center text-gray-300 mb-6">
-    For each symbol: top horizon by best 3-month average win rate, and best win rate on the most recent date.
-  </p>
+  <!-- IDT WIN RATE SUMMARY (per symbol) -->
+  <section class="py-10">
+    <h2 class="text-3xl font-bold text-center mb-4">Win Rate Summary</h2>
+    <p class="text-center text-gray-300 mb-6">
+      For each symbol: top horizon by best 3-day average win rate, and best win rate on the most recent date.
+    </p>
 
-  <div class="max-w-6xl mx-auto px-4">
-    <div class="glass rounded-xl p-4 overflow-x-auto">
-      <table class="min-w-full text-sm">
-        <thead class="border-b border-gray-700 text-gray-200">
-          <!-- Top grouping row -->
-          <tr>
-            <th class="py-2 pr-4 text-left"></th>
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="glass rounded-xl p-4 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="border-b border-gray-700 text-gray-200">
+            <tr>
+              <th class="py-2 pr-4 text-left"></th>
+              <th class="py-2 pr-4 text-center" colspan="3">OS</th>
+              <th class="py-2 pr-4 text-center col-split" colspan="3">IS</th>
+            </tr>
 
-            <th class="py-2 pr-4 text-center" colspan="3">OS</th>
-            <th class="py-2 pr-4 text-center col-split" colspan="3">IS</th>
-          </tr>
+            <tr class="text-gray-300">
+              <th class="py-2 pr-4 text-left underline">Symbol</th>
 
-          <!-- Bottom header row (ALL columns aligned here) -->
-          <tr class="text-gray-300">
-            <th class="py-2 pr-4 text-left underline">Symbol</th>
+              <th class="py-2 pr-4 text-left underline">Top (Best 3-day Avg)</th>
+              <th class="py-2 pr-4 text-left underline">Most Recent Best</th>
+              <th class="py-2 pr-4 text-left underline">Date</th>
 
-            <th class="py-2 pr-4 text-left underline">Top (Best 3-day Avg)</th>
-            <th class="py-2 pr-4 text-left underline">Most Recent Best</th>
-            <th class="py-2 pr-4 text-left underline">Date</th>
+              <th class="py-2 pr-4 text-left underline col-split">Top (Best 3-day Avg)</th>
+              <th class="py-2 pr-4 text-left underline">Most Recent Best</th>
+              <th class="py-2 pr-4 text-left underline">Date</th>
+            </tr>
+          </thead>
 
-            <th class="py-2 pr-4 text-left underline col-split">Top (Best 3-day Avg)</th>
-            <th class="py-2 pr-4 text-left underline">Most Recent Best</th>
-            <th class="py-2 pr-4 text-left underline">Date</th>
-          </tr>
-        </thead>
+          <tbody id="idtWinrateTbody"></tbody>
+        </table>
 
-        <tbody id="idtWinrateTbody"></tbody>
-      </table>
-
-      <div id="idtWinrateMeta" class="text-xs text-gray-400 mt-3"></div>
+        <div id="idtWinrateMeta" class="text-xs text-gray-400 mt-3"></div>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- HERO SECTION -->
-<section id="hero" class="relative bg-indigo-900 overflow-hidden">
-  <canvas id="neuralCanvas"></canvas>
-  <div class="relative z-10 text-center py-32">
-    <h1 class="text-4xl font-extrabold text-white">A Deep Dive into Data, Models, and Market Microstructure Intelligence</h1>
-    <p class="mt-4 text-lg text-gray-200">Real-time LOB dynamics, predictive modeling, and execution edge — all in one portal</p>
-    <a href="#dataset" class="mt-6 inline-block bg-white text-blue-600 px-6 py-3 rounded-lg shadow hover:bg-blue-100 transition">Explore Data</a>
-  </div>
-</section>
+  <!-- HERO SECTION -->
+  <section id="hero" class="relative bg-indigo-900 overflow-hidden">
+    <canvas id="neuralCanvas"></canvas>
+    <div class="relative z-10 text-center py-32">
+      <h1 class="text-4xl font-extrabold text-white">
+        A Deep Dive into Data, Models, and Market Microstructure Intelligence
+      </h1>
+      <p class="mt-4 text-lg text-gray-200">
+        Real-time LOB dynamics, predictive modeling, and execution edge — all in one portal
+      </p>
+      <a href="#dataset"
+         class="mt-6 inline-block bg-white text-blue-600 px-6 py-3 rounded-lg shadow hover:bg-blue-100 transition">
+        Explore Data
+      </a>
+    </div>
+  </section>
 
-<!-- DATASET OVERVIEW -->
-<section id="dataset" class="bg-gray-800 text-center">
-  <h2 class="text-3xl font-bold mb-4">Data Overview</h2>
-  <p class="max-w-3xl mx-auto text-gray-300">
-    Each trading day includes millions of tick-level records from CME  futures, e.g., Treasury and E-min Index limit order books (LOB) capturing the market’s microstructure at millisecond granularity across both top-of-book and deeper liquidity levels.  
-  </p>
-  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
-    To mitigate overfitting and reduce noise, the data is downsampled—preserving key dynamics while filtering out excess volatility. A representative subset is then sampled to balance model fidelity with computational efficiency, producing a high-quality dataset optimized for training short-term market behavior.
-  </p>
-</section>
+  <!-- DATASET OVERVIEW -->
+  <section id="dataset" class="bg-gray-800 text-center">
+    <h2 class="text-3xl font-bold mb-4">Data Overview</h2>
+    <p class="max-w-3xl mx-auto text-gray-300">
+      Each trading day includes millions of tick-level records from CME futures, e.g., Treasury and E-min Index limit order
+      books (LOB) capturing the market’s microstructure at millisecond granularity across both top-of-book and deeper
+      liquidity levels.
+    </p>
+    <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+      To mitigate overfitting and reduce noise, the data is downsampled—preserving key dynamics while filtering out excess
+      volatility. A representative subset is then sampled to balance model fidelity with computational efficiency,
+      producing a high-quality dataset optimized for training short-term market behavior.
+    </p>
+  </section>
 
-<!-- FEATURE SUMMARY -->
-<section id="features" class="bg-gray-900 text-center">
-  <h2 class="text-3xl font-bold mb-4">Feature Summary</h2>
-  <p class="text-gray-300 max-w-3xl mx-auto">
-    We leverage a curated blend of raw and engineered features derived from high-frequency Treasury futures data. These features capture the real-time behavior of the limit order book (LOB), including price levels, liquidity depth, and trade flow signals. Additional derived metrics—such as microprice, order imbalance, and realized volatility—enhance the signal quality and reflect nuanced market dynamics.
-  </p>
-  <p class="text-gray-300 max-w-3xl mx-auto mt-4">
-    To streamline modeling and reduce overfitting risk, we apply dimensionality reduction techniques (e.g., PCA), transforming the full feature space into a compact set of informative components. This process ensures robust, efficient learning while preserving key aspects of market microstructure.
-  </p>
-</section>
+  <!-- FEATURE SUMMARY -->
+  <section id="features" class="bg-gray-900 text-center">
+    <h2 class="text-3xl font-bold mb-4">Feature Summary</h2>
+    <p class="text-gray-300 max-w-3xl mx-auto">
+      We leverage a curated blend of raw and engineered features derived from high-frequency Treasury futures data. These
+      features capture the real-time behavior of the limit order book (LOB), including price levels, liquidity depth, and
+      trade flow signals. Additional derived metrics—such as microprice, order imbalance, and realized volatility—enhance
+      the signal quality and reflect nuanced market dynamics.
+    </p>
+    <p class="text-gray-300 max-w-3xl mx-auto mt-4">
+      To streamline modeling and reduce overfitting risk, we apply dimensionality reduction techniques (e.g., PCA),
+      transforming the full feature space into a compact set of informative components. This process ensures robust,
+      efficient learning while preserving key aspects of market microstructure.
+    </p>
+  </section>
 
-<!-- MODEL OVERVIEW -->
-<section id="model" class="bg-gray-800 text-center py-16">
-  <h2 class="text-3xl font-bold mb-4">Model Training Overview</h2>
-  <p class="max-w-3xl mx-auto text-gray-300">
-    Our forecasting engine leverages a deep LSTM architecture with dropout regularization, trained on high-frequency market data. It supports <strong>classification</strong> to detect directional movement (up, flat, down) using configurable price thresholds, and <strong>regression</strong> to predict mid-price deltas in basis points.
-  </p>
-  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
-    Temporal sequences span hundreds of market events to capture evolving order flow and liquidity dynamics. Prediction horizons are optimized to forecast meaningful moves ahead of market response. Training labels and signal sensitivity are aligned with strategy-specific goals—such as reactions to macro events, filtered time windows, or trading session regimes.
-  </p>
-  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
-    This <strong>Strategy-Aligned Customization</strong> ensures the model tailors its lookback windows, forecast horizons, and thresholds to match the decision cadence and risk appetite of specific trading styles.
-  </p>
-  <p class="max-w-3xl mx-auto text-gray-300 mt-4">
-    Hyperparameters—including network size, memory depth, dropout, and learning rate—are tuned using Bayesian optimization for optimal performance under noisy real-world conditions.
-  </p>
-</section>
+  <!-- MODEL OVERVIEW -->
+  <section id="model" class="bg-gray-800 text-center py-16">
+    <h2 class="text-3xl font-bold mb-4">Model Training Overview</h2>
+    <p class="max-w-3xl mx-auto text-gray-300">
+      Our forecasting engine leverages a deep LSTM architecture with dropout regularization, trained on high-frequency
+      market data. It supports <strong>classification</strong> to detect directional movement (up, flat, down) using
+      configurable price thresholds, and <strong>regression</strong> to predict mid-price deltas in basis points.
+    </p>
+    <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+      Temporal sequences span hundreds of market events to capture evolving order flow and liquidity dynamics. Prediction
+      horizons are optimized to forecast meaningful moves ahead of market response. Training labels and signal sensitivity
+      are aligned with strategy-specific goals—such as reactions to macro events, filtered time windows, or trading session
+      regimes.
+    </p>
+    <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+      This <strong>Strategy-Aligned Customization</strong> ensures the model tailors its lookback windows, forecast
+      horizons, and thresholds to match the decision cadence and risk appetite of specific trading styles.
+    </p>
+    <p class="max-w-3xl mx-auto text-gray-300 mt-4">
+      Hyperparameters—including network size, memory depth, dropout, and learning rate—are tuned using Bayesian
+      optimization for optimal performance under noisy real-world conditions.
+    </p>
+  </section>
 
-<!-- WORKFLOW -->
-<section id="results" class="bg-gray-900 text-center py-10">
-  <h2 class="text-3xl font-bold mb-4 text-white">HFT Trading Workflow</h2>
-  <p class="max-w-3xl mx-auto text-gray-300 mb-6">
-    The chart below illustrates how our real-time and offline components interact to generate fast, informed trading signals based on macroeconomic events and high-frequency market data.
-  </p>
-  <img src="HFT_flowchart.png" alt="HFT Trading Workflow Diagram" class="mx-auto max-w-full h-auto rounded shadow-lg">
-</section>
+  <!-- WORKFLOW -->
+  <section id="results" class="bg-gray-900 text-center py-10">
+    <h2 class="text-3xl font-bold mb-4 text-white">HFT Trading Workflow</h2>
+    <p class="max-w-3xl mx-auto text-gray-300 mb-6">
+      The chart below illustrates how our real-time and offline components interact to generate fast, informed trading
+      signals based on macroeconomic events and high-frequency market data.
+    </p>
+    <img src="HFT_flowchart.png" alt="HFT Trading Workflow Diagram" class="mx-auto max-w-full h-auto rounded shadow-lg">
+  </section>
 
-<!-- CONTACT US FOR EVALUATION -->
-<section id="model" class="bg-gray-800 text-center py-16">
-  <h2 class="text-3xl font-bold mb-4">Contact Us for Evaluation & Results</h2>
-  <p class="max-w-2xl mx-auto text-gray-300 mb-6">
-    Interested in deeper performance metrics and microstructure analytics?<br/>
-    You can:
-  </p>
-  <p class="max-w-2xl mx-auto text-gray-300">
-    • Email us at <a href="mailto:info@quantumyield.ai" class="text-blue-400 underline">info@quantumyield.ai</a><br/>
-    • Or book a meeting directly via <a href="https://calendly.com/jason-huang-quantumyield/30min" target="_blank" class="text-blue-400 underline">Calendly</a>
-  </p>
-</section>
+  <!-- CONTACT US FOR EVALUATION -->
+  <section id="model" class="bg-gray-800 text-center py-16">
+    <h2 class="text-3xl font-bold mb-4">Contact Us for Evaluation & Results</h2>
+    <p class="max-w-2xl mx-auto text-gray-300 mb-6">
+      Interested in deeper performance metrics and microstructure analytics?<br/>
+      You can:
+    </p>
+    <p class="max-w-2xl mx-auto text-gray-300">
+      • Email us at <a href="mailto:info@quantumyield.ai" class="text-blue-400 underline">info@quantumyield.ai</a><br/>
+      • Or book a meeting directly via
+      <a href="https://calendly.com/jason-huang-quantumyield/30min" target="_blank" class="text-blue-400 underline">Calendly</a>
+    </p>
+  </section>
 
-<!-- FOOTER -->
-<footer class="bg-gray-950 text-gray-500 text-sm text-center py-6">
-  &copy; 2025 Quantum Yield. All rights reserved.
-</footer>
+  <footer class="bg-gray-950 text-gray-500 text-sm text-center py-6">
+    &copy; 2025 Quantum Yield. All rights reserved.
+  </footer>
 
-<!-- NEURAL ANIMATION JS -->
-<script>
-  window.addEventListener("DOMContentLoaded", () => {
-    const canvas = document.getElementById("neuralCanvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+  <!-- NEURAL ANIMATION JS -->
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const canvas = document.getElementById("neuralCanvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
 
-    class Particle {
-      constructor() {
-        this.reset();
-      }
-      reset() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.radius = Math.random() * 2 + 1;
-        this.speedX = (Math.random() - 0.5) * 0.5;
-        this.speedY = (Math.random() - 0.5) * 0.5;
-        this.alpha = Math.random() * 0.5 + 0.3;
-      }
-      update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        if (
-          this.x < 0 ||
-          this.x > canvas.width ||
-          this.y < 0 ||
-          this.y > canvas.height
-        ) {
-          this.reset();
+      class Particle {
+        constructor() { this.reset(); }
+        reset() {
+          this.x = Math.random() * canvas.width;
+          this.y = Math.random() * canvas.height;
+          this.radius = Math.random() * 2 + 1;
+          this.speedX = (Math.random() - 0.5) * 0.5;
+          this.speedY = (Math.random() - 0.5) * 0.5;
+          this.alpha = Math.random() * 0.5 + 0.3;
+        }
+        update() {
+          this.x += this.speedX;
+          this.y += this.speedY;
+          if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
+        }
+        draw() {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0, 255, 255, ${this.alpha})`;
+          ctx.shadowColor = "#00faff";
+          ctx.shadowBlur = 5;
+          ctx.fill();
         }
       }
-      draw() {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 255, 255, ${this.alpha})`;
-        ctx.shadowColor = "#00faff";
-        ctx.shadowBlur = 5;
-        ctx.fill();
-      }
-    }
 
-    const particles = Array.from({ length: 60 }, () => new Particle());
+      const particles = Array.from({ length: 60 }, () => new Particle());
 
-    function drawLines() {
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = "rgba(0,255,255,0.1)";
-            ctx.stroke();
+      function drawLines() {
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 120) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = "rgba(0,255,255,0.1)";
+              ctx.stroke();
+            }
           }
         }
       }
-    }
 
-    function animate() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawLines();
-      particles.forEach(p => {
-        p.update();
-        p.draw();
-      });
-      requestAnimationFrame(animate);
-    }
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawLines();
+        particles.forEach(p => { p.update(); p.draw(); });
+        requestAnimationFrame(animate);
+      }
 
-    animate();
-  });
-</script>
-<script>
+      animate();
+    });
+  </script>
+
+  <!-- MENU JS -->
+  <script>
     const menuButton = document.getElementById('menu-button');
     const dropdownMenu = document.getElementById('dropdownMenu');
 
@@ -284,239 +294,237 @@
         dropdownMenu.classList.add('hidden');
       }
     });
-</script>
-<script>
-(function () {
-  const tbody = document.getElementById("idtWinrateTbody");
-  const meta  = document.getElementById("idtWinrateMeta");
+  </script>
 
-  const EXCLUDE_ASOF = new Set(["20251226","20251224"]);
-  const MIN_DAYS_FOR_TOP = 3;          // require horizon present in all last 3 days for "Top"
-  const ACT_TARGET_TRADES = 1500;      // tune: trades that corresponds to Activity=100
+  <!-- IDT WINRATE TABLE JS (REVISED) -->
+  <script>
+  (function () {
+    const tbody = document.getElementById("idtWinrateTbody");
+    const meta  = document.getElementById("idtWinrateMeta");
 
-  function parseAsOfYYYYMMDD(asof) {
-    const s = String(asof || "").trim();
-    if (!/^\d{8}$/.test(s)) return null;
-    return new Date(Date.UTC(
-      Number(s.slice(0, 4)),
-      Number(s.slice(4, 6)) - 1,
-      Number(s.slice(6, 8))
-    ));
-  }
+    // IMPORTANT: This page section is IDT summary; daily_data.json contains both HFT + IDT rows.
+    // Filter to profile === "idt" so we don't accidentally select HFT millisecond horizons (which show as 0s).
+    const PROFILE_FILTER = "idt"; // set to null to disable filtering
 
-  function fmtDate(d) {
-    return d ? d.toISOString().slice(0, 10) : "—";
-  }
+    const EXCLUDE_ASOF = new Set(["20251226","20251224"]);
+    const MIN_DAYS_FOR_TOP = 3;          // require horizon present in all last 3 days for "Top"
+    const ACT_TARGET_TRADES = 1500;      // tune: trades that corresponds to Activity=100
 
-  function normalizeWR(v) {
-    const n = Number(v);
-    if (!Number.isFinite(n) || n < 0) return null;
-    return n > 1 ? n / 100 : n; // supports 60.2 or 0.602
-  }
-
-  function pct(x) {
-    return Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : "—";
-  }
-
-  function clamp01(x) {
-    if (!Number.isFinite(x)) return 0;
-    return Math.max(0, Math.min(1, x));
-  }
-
-  function formatHorizon(ms) {
-    const v = Number(ms);
-    if (!Number.isFinite(v)) return String(ms);
-    if (v < 60_000) return `${Math.round(v / 1000)}s`;
-    if (v < 3_600_000) return `${(v / 60000).toFixed(1)}m`;
-    return `${(v / 3_600_000).toFixed(2)}h`;
-  }
-
-  // Activity score 0..100 based on num_trades
-  function activityScore(numTrades) {
-    const n = Number(numTrades);
-    if (!Number.isFinite(n) || n <= 0) return 0;
-    return Math.round(100 * clamp01(n / ACT_TARGET_TRADES));
-  }
-
-  // Confidence score 0..100:
-  // - edge = how far above 50% (0..1)
-  // - perfScoreN (0..10) -> (0..1)
-  // - multiply by sqrt(activity) to penalize low activity
-  function confidenceScore(winRate01, perfScoreN, act100) {
-    const wr = Number(winRate01);
-    const perf = Number(perfScoreN);
-
-    const edge = clamp01((wr - 0.50) / 0.50);        // 50% -> 0, 100% -> 1
-    const perf01 = clamp01(perf / 10.0);             // 0..10 -> 0..1
-    const act01 = clamp01(Number(act100) / 100.0);   // 0..100 -> 0..1
-
-    const base = 0.65 * edge + 0.35 * perf01;
-    const scaled = base * Math.sqrt(act01);
-
-    return Math.round(100 * scaled);
-  }
-
-  function groupBySymbol(rows) {
-    const out = {};
-    for (const r of rows) {
-      const sym = r?.symbol;
-      if (!sym) continue;
-      out[sym] ??= [];
-      out[sym].push(r);
-    }
-    return out;
-  }
-
-  // Computes per symbol+tag:
-  // - Top horizon by best 3-day avg (eligible only if appears on all 3 days)
-  // - Recent best horizon on latest day
-  // Each includes Activity/Confidence.
-  function computeTagReport(rows, tag) {
-    const data = rows
-      .filter(r => r?.tag === tag)
-      .filter(r => !EXCLUDE_ASOF.has(String(r.asof || "").trim()))
-      .map(r => ({
-        d: parseAsOfYYYYMMDD(r.asof),
-        h: (r.horizon_ms != null) ? String(r.horizon_ms) : null,
-        wr: normalizeWR(r.win_rate),
-        num_trades: Number(r.num_trades ?? r.count ?? 0),
-        perfScoreN: Number(r.perfScoreN ?? 0),
-      }))
-      .filter(x => x.d && x.h && x.wr !== null);
-
-    if (!data.length) return null;
-
-    // Latest date
-    const latestDate = data.reduce((m, x) => (x.d > m ? x.d : m), data[0].d);
-    const latestKey  = latestDate.getTime();
-
-    // Recent best = max win_rate across horizons on latest day
-    let bestRecent = null;
-    for (const x of data) {
-      if (x.d.getTime() !== latestKey) continue;
-      if (!bestRecent || x.wr > bestRecent.wr) bestRecent = x;
+    function parseAsOfYYYYMMDD(asof) {
+      const s = String(asof || "").trim();
+      if (!/^\d{8}$/.test(s)) return null;
+      return new Date(Date.UTC(
+        Number(s.slice(0, 4)),
+        Number(s.slice(4, 6)) - 1,
+        Number(s.slice(6, 8))
+      ));
     }
 
-    let bestRecentPack = null;
-    if (bestRecent) {
-      const act = activityScore(bestRecent.num_trades);
-      const conf = confidenceScore(bestRecent.wr, bestRecent.perfScoreN, act);
-      bestRecentPack = { ...bestRecent, act, conf };
+    function fmtDate(d) {
+      return d ? d.toISOString().slice(0, 10) : "—";
     }
 
-    // Last 3 unique days (desc)
-    const last3Days = Array.from(new Set(data.map(x => x.d.getTime())))
-      .sort((a, b) => b - a)
-      .slice(0, 3);
-
-    // Aggregate per horizon over last3Days, track which days it appears
-    const agg = new Map(); // h -> { sumWr, sumTrades, sumPerf, days:Set }
-    for (const x of data) {
-      const dayKey = x.d.getTime();
-      if (!last3Days.includes(dayKey)) continue;
-
-      const cur = agg.get(x.h) || { sumWr: 0, sumTrades: 0, sumPerf: 0, days: new Set() };
-      cur.sumWr += x.wr;
-      cur.sumTrades += (Number.isFinite(x.num_trades) ? x.num_trades : 0);
-      cur.sumPerf += (Number.isFinite(x.perfScoreN) ? x.perfScoreN : 0);
-      cur.days.add(dayKey);
-      agg.set(x.h, cur);
+    function normalizeWR(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0) return null;
+      return n > 1 ? n / 100 : n; // supports 60.2 or 0.602
     }
 
-    // Select top horizon by avg win_rate, eligible only if it shows up on all 3 days
-    let top = null;
-    for (const [h, v] of agg.entries()) {
-      const dayCount = v.days.size;
-      if (dayCount < Math.min(MIN_DAYS_FOR_TOP, last3Days.length)) continue;
+    function pct(x) {
+      return Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : "—";
+    }
 
-      const avgWr = v.sumWr / dayCount;
-      const avgTrades = v.sumTrades / dayCount;
-      const avgPerf = v.sumPerf / dayCount;
+    function clamp01(x) {
+      if (!Number.isFinite(x)) return 0;
+      return Math.max(0, Math.min(1, x));
+    }
 
-      const act = activityScore(avgTrades);
-      const conf = confidenceScore(avgWr, avgPerf, act);
+    function formatHorizon(ms) {
+      const v = Number(ms);
+      if (!Number.isFinite(v)) return String(ms);
+      if (v < 60_000) return `${Math.round(v / 1000)}s`;
+      if (v < 3_600_000) return `${(v / 60000).toFixed(1)}m`;
+      return `${(v / 3_600_000).toFixed(2)}h`;
+    }
 
-      if (!top || avgWr > top.avgWr) {
-        top = { h, avgWr, act, conf };
+    function activityScore(numTrades) {
+      const n = Number(numTrades);
+      if (!Number.isFinite(n) || n <= 0) return 0;
+      return Math.round(100 * clamp01(n / ACT_TARGET_TRADES));
+    }
+
+    function confidenceScore(winRate01, perfScoreN, act100) {
+      const wr = Number(winRate01);
+      const perf = Number(perfScoreN);
+
+      const edge = clamp01((wr - 0.50) / 0.50);        // 50% -> 0, 100% -> 1
+      const perf01 = clamp01(perf / 10.0);             // 0..10 -> 0..1
+      const act01 = clamp01(Number(act100) / 100.0);   // 0..100 -> 0..1
+
+      const base = 0.65 * edge + 0.35 * perf01;
+      const scaled = base * Math.sqrt(act01);
+
+      return Math.round(100 * scaled);
+    }
+
+    function groupBySymbol(rows) {
+      const out = {};
+      for (const r of rows) {
+        const sym = r?.symbol;
+        if (!sym) continue;
+        out[sym] ??= [];
+        out[sym].push(r);
+      }
+      return out;
+    }
+
+    function computeTagReport(rows, tag) {
+      const data = rows
+        .filter(r => (PROFILE_FILTER ? r?.profile === PROFILE_FILTER : true))
+        .filter(r => r?.tag === tag)
+        .filter(r => !EXCLUDE_ASOF.has(String(r.asof || "").trim()))
+        .map(r => ({
+          d: parseAsOfYYYYMMDD(r.asof),
+          h: (r.horizon_ms != null) ? String(r.horizon_ms) : null,
+          wr: normalizeWR(r.win_rate),
+          num_trades: Number(r.num_trades ?? r.count ?? 0),
+          perfScoreN: Number(r.perfScoreN ?? 0),
+        }))
+        .filter(x => x.d && x.h && x.wr !== null);
+
+      if (!data.length) return null;
+
+      const latestDate = data.reduce((m, x) => (x.d > m ? x.d : m), data[0].d);
+      const latestKey  = latestDate.getTime();
+
+      // Recent best = max win_rate across horizons on latest day
+      let bestRecent = null;
+      for (const x of data) {
+        if (x.d.getTime() !== latestKey) continue;
+        if (!bestRecent || x.wr > bestRecent.wr) bestRecent = x;
+      }
+
+      let bestRecentPack = null;
+      if (bestRecent) {
+        const act = activityScore(bestRecent.num_trades);
+        const conf = confidenceScore(bestRecent.wr, bestRecent.perfScoreN, act);
+        bestRecentPack = { ...bestRecent, act, conf };
+      }
+
+      // Last 3 unique days (desc)
+      const last3Days = Array.from(new Set(data.map(x => x.d.getTime())))
+        .sort((a, b) => b - a)
+        .slice(0, 3);
+
+      // Aggregate per horizon over last3Days
+      const agg = new Map(); // h -> { sumWr, sumTrades, sumPerf, days:Set }
+      for (const x of data) {
+        const dayKey = x.d.getTime();
+        if (!last3Days.includes(dayKey)) continue;
+
+        const cur = agg.get(x.h) || { sumWr: 0, sumTrades: 0, sumPerf: 0, days: new Set() };
+        cur.sumWr += x.wr;
+        cur.sumTrades += (Number.isFinite(x.num_trades) ? x.num_trades : 0);
+        cur.sumPerf += (Number.isFinite(x.perfScoreN) ? x.perfScoreN : 0);
+        cur.days.add(dayKey);
+        agg.set(x.h, cur);
+      }
+
+      // Select top horizon by avg win_rate, eligible only if it shows up on all 3 days
+      let top = null;
+      for (const [h, v] of agg.entries()) {
+        const dayCount = v.days.size;
+        if (dayCount < Math.min(MIN_DAYS_FOR_TOP, last3Days.length)) continue;
+
+        const avgWr = v.sumWr / dayCount;
+        const avgTrades = v.sumTrades / dayCount;
+        const avgPerf = v.sumPerf / dayCount;
+
+        const act = activityScore(avgTrades);
+        const conf = confidenceScore(avgWr, avgPerf, act);
+
+        if (!top || avgWr > top.avgWr) {
+          top = { h, avgWr, act, conf };
+        }
+      }
+
+      return { latestDate, top, bestRecent: bestRecentPack };
+    }
+
+    function cellTextTop(x) {
+      if (!x) return "—";
+      return `
+        <div>
+          <div>${formatHorizon(x.h)} (avg ${pct(x.avgWr)})</div>
+          <div class="text-xs text-gray-400 mt-0.5">Act ${x.act} · Conf ${x.conf}</div>
+        </div>
+      `;
+    }
+
+    function cellTextRecent(x) {
+      if (!x) return "—";
+      return `
+        <div>
+          <div>${formatHorizon(x.h)}: ${pct(x.wr)}</div>
+          <div class="text-xs text-gray-400 mt-0.5">Act ${x.act} · Conf ${x.conf}</div>
+        </div>
+      `;
+    }
+
+    function renderRow(sym, rptOS, rptIS) {
+      const tr = document.createElement("tr");
+      tr.className = "border-b border-gray-800";
+
+      tr.innerHTML = `
+        <td class="py-2 pr-4 font-semibold">${sym}</td>
+
+        <td class="py-2 pr-4">${cellTextTop(rptOS?.top)}</td>
+        <td class="py-2 pr-4 cell-recent">${cellTextRecent(rptOS?.bestRecent)}</td>
+        <td class="py-2 pr-4 text-gray-300">${fmtDate(rptOS?.latestDate)}</td>
+
+        <td class="py-2 pr-4 col-split">${cellTextTop(rptIS?.top)}</td>
+        <td class="py-2 pr-4 cell-recent">${cellTextRecent(rptIS?.bestRecent)}</td>
+        <td class="py-2 pr-4 text-gray-300">${fmtDate(rptIS?.latestDate)}</td>
+      `;
+      return tr;
+    }
+
+    async function run() {
+      try {
+        meta.textContent = "Loading daily_data.json…";
+        const res = await fetch("./daily_data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const rows = await res.json();
+        if (!Array.isArray(rows)) throw new Error("daily_data.json must be an array.");
+
+        const bySymbol = groupBySymbol(rows);
+        tbody.innerHTML = "";
+
+        let count = 0;
+        for (const sym of Object.keys(bySymbol).sort()) {
+          const r = bySymbol[sym];
+          const rptOS = computeTagReport(r, "OS");
+          const rptIS = computeTagReport(r, "IS");
+          if (!rptOS && !rptIS) continue;
+
+          tbody.appendChild(renderRow(sym, rptOS, rptIS));
+          count++;
+        }
+
+        meta.textContent =
+          `Computed ${count} symbols (OS / IS shown separately). ` +
+          `Profile filter: ${PROFILE_FILTER ?? "none"}. ` +
+          `Excluded dates: ${Array.from(EXCLUDE_ASOF).join(", ")}. ` +
+          `Top horizon is selected using the last 3 trading days. ` +
+          `Act reflects sample activity (trade volume), Conf reflects confidence in edge (activity-adjusted).`;
+      } catch (e) {
+        console.error(e);
+        meta.textContent = `Failed: ${e.message}`;
       }
     }
 
-    return { latestDate, top, bestRecent: bestRecentPack };
-  }
-
-  function cellTextTop(x) {
-    if (!x) return "—";
-    return `
-      <div>
-        <div>${formatHorizon(x.h)} (avg ${pct(x.avgWr)})</div>
-        <div class="text-xs text-gray-400 mt-0.5">Act ${x.act} · Conf ${x.conf}</div>
-      </div>
-    `;
-  }
-
-  function cellTextRecent(x) {
-    if (!x) return "—";
-    return `
-      <div>
-        <div>${formatHorizon(x.h)}: ${pct(x.wr)}</div>
-        <div class="text-xs text-gray-400 mt-0.5">Act ${x.act} · Conf ${x.conf}</div>
-      </div>
-    `;
-  }
-
-  function renderRow(sym, rptOS, rptIS) {
-    const tr = document.createElement("tr");
-    tr.className = "border-b border-gray-800";
-
-    tr.innerHTML = `
-      <td class="py-2 pr-4 font-semibold">${sym}</td>
-
-      <td class="py-2 pr-4">${cellTextTop(rptOS?.top)}</td>
-      <td class="py-2 pr-4 cell-recent">${cellTextRecent(rptOS?.bestRecent)}</td>
-      <td class="py-2 pr-4 text-gray-300">${fmtDate(rptOS?.latestDate)}</td>
-
-      <td class="py-2 pr-4 col-split">${cellTextTop(rptIS?.top)}</td>
-      <td class="py-2 pr-4">${cellTextRecent(rptIS?.bestRecent)}</td>
-      <td class="py-2 pr-4 text-gray-300">${fmtDate(rptIS?.latestDate)}</td>
-    `;
-    return tr;
-  }
-
-  async function run() {
-    try {
-      meta.textContent = "Loading daily_data.json…";
-      const res = await fetch("./daily_data.json", { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const rows = await res.json();
-      if (!Array.isArray(rows)) throw new Error("daily_data.json must be an array.");
-
-      const bySymbol = groupBySymbol(rows);
-      tbody.innerHTML = "";
-
-      let count = 0;
-      for (const sym of Object.keys(bySymbol).sort()) {
-        const r = bySymbol[sym];
-        const rptOS = computeTagReport(r, "OS");
-        const rptIS = computeTagReport(r, "IS");
-        if (!rptOS && !rptIS) continue;
-
-        tbody.appendChild(renderRow(sym, rptOS, rptIS));
-        count++;
-      }
-
-      meta.textContent =
-        `Computed ${count} symbols (OS / IS shown separately). ` +
-        `Excluded dates: ${Array.from(EXCLUDE_ASOF).join(", ")}. ` +
-        `Top horizon is selected using the last 3 trading days. ` +
-        `Act reflects sample activity (trade volume), Conf reflects confidence in edge (activity-adjusted).`;
-    } catch (e) {
-      console.error(e);
-      meta.textContent = `Failed: ${e.message}`;
-    }
-  }
-
-  window.addEventListener("DOMContentLoaded", run);
-})();
-</script>
+    window.addEventListener("DOMContentLoaded", run);
+  })();
+  </script>
 </body>
 </html>
